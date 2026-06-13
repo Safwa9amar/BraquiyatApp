@@ -42,6 +42,9 @@ implementation
 uses
   uDM, uConsts, uTheme;
 
+type
+  TCtrlCrack = class(TControl);   // exposes the protected OnResize event
+
 procedure TfrmSettings.FormCreate(Sender: TObject);
 var
   Navy, FieldFill, CardBg, PageBg, Muted, TextMain: TColor;
@@ -241,7 +244,7 @@ begin
   pnlMain.ParentBackground := False;
   pnlMain.Color      := PageBg;
   pnlMain.Padding.SetBounds(40, 24, 40, 24);
-  pnlMain.OnResize   := PnlMainResize;
+  TCtrlCrack(pnlMain).OnResize := PnlMainResize;
 
   // Create the edits up front so they can be slotted into rows
   FEdtOld     := TEdit.Create(Self); FEdtOld.PasswordChar     := '*'; StyleField(FEdtOld);

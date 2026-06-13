@@ -54,6 +54,9 @@ const
   CLR_BORDER = $00848284;
   CLR_BG     = $00C8D0D4;
 
+type
+  TCtrlCrack = class(TControl);   // exposes the protected OnResize event
+
 procedure TfrmDashboard.FormCreate(Sender: TObject);
 begin
   BiDiMode := bdRightToLeft;
@@ -67,7 +70,7 @@ begin
   pnlCards.BevelOuter := bvNone;
   pnlCards.Height     := 110;
   pnlCards.Align      := alTop;
-  pnlCards.OnResize   := CardsResize;
+  TCtrlCrack(pnlCards).OnResize := CardsResize;
 
   CreateStatCards;
   SetupRecentGrid;
@@ -215,7 +218,7 @@ begin
   sgRecent.Font.Size    := 9;
   sgRecent.BiDiMode     := bdRightToLeft;
   sgRecent.OnDrawCell   := GridDrawCell;
-  sgRecent.OnResize     := GridResize;
+  TCtrlCrack(sgRecent).OnResize := GridResize;
 
   ColCaps[0]  := #1585#1602#1605' '#1575#1604#1576#1585#1602#1610#1577;
   ColCaps[1]  := #1575#1604#1578#1575#1585#1610#1582;
