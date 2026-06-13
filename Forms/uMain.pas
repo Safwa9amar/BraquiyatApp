@@ -65,12 +65,19 @@ type
     FSideBar:      array[0..6] of TPanel;   // active-state accent strip per row
     FSideIcon:     array[0..6] of TLabel;   // icon-font glyph per row
     FSideText:     array[0..6] of TLabel;   // Arabic caption per row
+    FTabBtns:      array[0..6] of TPanel;   // classic top tabs
+    FTabIco:       array[0..6] of TLabel;
+    FTabTxt:       array[0..6] of TLabel;
+    FActiveTab:    TPanel;
     procedure SetupColors;
     procedure SetupSidebar;
+    procedure SetupTabs;
     procedure NavigateTo(const AKey: string);
     procedure SideItemClick(Sender: TObject);
     procedure SideItemEnter(Sender: TObject);
     procedure SideItemLeave(Sender: TObject);
+    procedure TabEnter(Sender: TObject);
+    procedure TabLeave(Sender: TObject);
     procedure UpdateClock;
     procedure SetBreadcrumb(const ALabel: string);
   public
@@ -121,6 +128,8 @@ begin
 
   SetupColors;
   SetupSidebar;
+  pnlSidebar.Visible := False;   // classic tabbed nav replaces the sidebar
+  SetupTabs;
 
   // Update header with logged-in user (name, falling back to role)
   if DM.CurrentName <> '' then
@@ -157,20 +166,13 @@ procedure TfrmMain.SetupColors;
   end;
 
 begin
-  // App header — white band, branded title, with a bottom hairline
-  Accent(pnlAppHeader, uTheme.CardSurface);
-  Accent(pnlUserInfo,  uTheme.CardSurface);
-  TextLbl(lblAppTitle,   uTheme.ACCENT_BLUE, 13);
+  // App header — classic blue band, white title
+  Accent(pnlAppHeader, uTheme.ACCENT_BLUE);
+  Accent(pnlUserInfo,  uTheme.ACCENT_BLUE);
+  TextLbl(lblAppTitle,   clWhite, 14);
   lblAppTitle.Font.Style := [fsBold];
-  TextLbl(lblHeaderUser, uTheme.TEXT_MAIN, 0);
-  TextLbl(lblHeaderDate, uTheme.MutedText, 9);
-  with TPanel.Create(Self) do
-  begin
-    Parent := pnlAppHeader; Align := alBottom; Height := 1;
-    BevelOuter := bvNone; ParentBackground := False;
-    StyleElements := StyleElements - [seClient];
-    Color := uTheme.HAIRLINE;
-  end;
+  TextLbl(lblHeaderUser, clWhite, 0);
+  TextLbl(lblHeaderDate, $00E1D5CB, 9);
 
   // Sidebar shell colours are applied in SetupSidebar (light theme).
 
@@ -426,6 +428,107 @@ begin
   end;
 end;
 
+procedure TfrmMain.SetupTabs;
+const
+  ICON_FONT = 'Segoe MDL2 Assets';
+var
+  I: Integer;
+  Strip, Tab: TPanel;
+  Ico, Txt: TLabel;
+begin
+  pnlBreadcrumb.Visible := False;
+
+  Strip := TPanel.Create(Self);
+  Strip.Parent       := pnlMainArea;
+  Strip.Align        := alTop;
+  Strip.Height       := 42;
+  Strip.BevelOuter   := bvNone;
+  Strip.StyleElements    := Strip.StyleElements - [seClient];
+  Strip.ParentBackground := False;
+  Strip.Color        := uTheme.PAGE_BG;
+
+  for I := 0 to 6 do
+  begin
+    Tab := TPanel.Create(Self);
+    Tab.Parent       := Strip;
+    Tab.Align        := alRight;          // RTL: first tab (home) on the right
+    Tab.AlignWithMargins := True;
+    Tab.Margins.SetBounds(2, 5, 2, 0);
+    Tab.Width        := 138;
+    Tab.BevelOuter   := bvNone;
+    Tab.StyleElements    := Tab.StyleElements - [seClient];
+    Tab.ParentBackground := False;
+    Tab.Color        := uTheme.CardSurface;
+    Tab.Tag          := I;
+    Tab.Cursor       := crHandPoint;
+    Tab.OnClick      := SideItemClick;    // reuses the Tag -> NavigateTo handler
+    Tab.OnMouseEnter := TabEnter;
+    Tab.OnMouseLeave := TabLeave;
+
+    Ico := TLabel.Create(Self);
+    Ico.Parent       := Tab;
+    Ico.Align        := alRight;
+    Ico.Width        := 30;
+    Ico.Caption      := NAV[I].Glyph;
+    Ico.Transparent  := True;
+    Ico.StyleElements := Ico.StyleElements - [seFont];
+    Ico.Font.Name    := ICON_FONT;
+    Ico.Font.Size    := 11;
+    Ico.Font.Color   := uTheme.ACCENT_BLUE;
+    Ico.Alignment    := taCenter;
+    Ico.Layout       := tlCenter;
+    Ico.Tag          := I;
+    Ico.Cursor       := crHandPoint;
+    Ico.OnClick      := SideItemClick;
+    Ico.OnMouseEnter := TabEnter;
+    Ico.OnMouseLeave := TabLeave;
+
+    Txt := TLabel.Create(Self);
+    Txt.Parent       := Tab;
+    Txt.Align        := alClient;
+    Txt.AlignWithMargins := True;
+    Txt.Margins.SetBounds(6, 0, 4, 0);
+    Txt.Caption      := NAV[I].Caption;
+    Txt.Transparent  := True;
+    Txt.StyleElements := Txt.StyleElements - [seFont];
+    Txt.Font.Name    := uTheme.FONT_NAME;
+    Txt.Font.Size    := 9;
+    Txt.Font.Color   := uTheme.TEXT_MAIN;
+    Txt.Layout       := tlCenter;
+    Txt.BiDiMode     := bdRightToLeft;
+    Txt.Alignment    := taLeftJustify;    // RTL -> visual right (next to the icon)
+    Txt.Tag          := I;
+    Txt.Cursor       := crHandPoint;
+    Txt.OnClick      := SideItemClick;
+    Txt.OnMouseEnter := TabEnter;
+    Txt.OnMouseLeave := TabLeave;
+
+    FTabBtns[I] := Tab;
+    FTabIco[I]  := Ico;
+    FTabTxt[I]  := Txt;
+  end;
+end;
+
+procedure TfrmMain.TabEnter(Sender: TObject);
+var
+  Idx: Integer;
+begin
+  if not (Sender is TControl) then Exit;
+  Idx := TControl(Sender).Tag;
+  if (Idx < 0) or (Idx > 6) or (FTabBtns[Idx] = FActiveTab) then Exit;
+  FTabBtns[Idx].Color := uTheme.ACCENT_LIGHT;
+end;
+
+procedure TfrmMain.TabLeave(Sender: TObject);
+var
+  Idx: Integer;
+begin
+  if not (Sender is TControl) then Exit;
+  Idx := TControl(Sender).Tag;
+  if (Idx < 0) or (Idx > 6) or (FTabBtns[Idx] = FActiveTab) then Exit;
+  FTabBtns[Idx].Color := uTheme.CardSurface;
+end;
+
 procedure TfrmMain.SideItemClick(Sender: TObject);
 var
   Idx: Integer;
@@ -485,6 +588,14 @@ begin
       FSideText[I].Font.Style := [fsBold];
       FActiveSideBtn := FSideItems[I];
       SetBreadcrumb(NAV[I].Caption);
+      if Assigned(FTabBtns[I]) then
+      begin
+        FTabBtns[I].Color     := uTheme.ACCENT_BLUE;   // active tab = blue
+        FTabIco[I].Font.Color := clWhite;
+        FTabTxt[I].Font.Color := clWhite;
+        FTabTxt[I].Font.Style := [fsBold];
+        FActiveTab := FTabBtns[I];
+      end;
     end
     else
     begin
@@ -493,6 +604,13 @@ begin
       FSideIcon[I].Font.Color := uTheme.MutedText;
       FSideText[I].Font.Color := uTheme.SIDEBAR_TEXT;
       FSideText[I].Font.Style := [];
+      if Assigned(FTabBtns[I]) then
+      begin
+        FTabBtns[I].Color     := uTheme.CardSurface;   // inactive tab = white
+        FTabIco[I].Font.Color := uTheme.ACCENT_BLUE;
+        FTabTxt[I].Font.Color := uTheme.TEXT_MAIN;
+        FTabTxt[I].Font.Style := [];
+      end;
     end;
   end;
 
