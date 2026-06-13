@@ -47,14 +47,15 @@ const
   ACCENT_HOVER      = $00AF401E;         // hover       #1E40AF  RGB(30,64,175)
   ACCENT_ACTIVE     = ACCENT_BLUE_DARK;  // active
 
-  // Dark sidebar shell + neutrals
-  SIDEBAR_BG    = $003B291E;  // slate-800  #1E293B
-  SIDEBAR_DARK  = $002A170F;  // slate-900  #0F172A
-  SIDEBAR_HOVER = $00554133;  // slate-700  #334155
-  SIDEBAR_TEXT  = $00E1D5CB;  // slate-300  #CBD5E1
+  // Light sidebar shell + neutrals
+  SIDEBAR_BG    = $00FFFFFF;  // white sidebar
+  SIDEBAR_DARK  = $00F7F4F1;  // subtle header tint
+  SIDEBAR_HOVER = $00F9F5F1;  // slate-100 hover  #F1F5F9
+  SIDEBAR_TEXT  = $00554133;  // slate-700 text   #334155
   PAGE_BG       = $00FAF8F7;  // near-white #F7F8FA
   TEXT_MAIN     = $0037291F;  // slate-800  #1F2937
   HAIRLINE      = $00EBE7E5;  // border     #E5E7EB
+  CLR_OK_GREEN  = $0081B910;  // online dot #10B981
 
   // Status (ETAT) badge colors
   CLR_ST_RECEIVED  = $00B98029;  // blue   RGB(41,128,185)

@@ -157,21 +157,36 @@ procedure TfrmMain.SetupColors;
   end;
 
 begin
-  // App header — accent band (survives the active VCL style)
-  Accent(pnlAppHeader, uTheme.AccentHeader);
-  Accent(pnlUserInfo,  uTheme.AccentHeader);
-  TextLbl(lblAppTitle,   clWhite, 13);
+  // App header — white band, branded title, with a bottom hairline
+  Accent(pnlAppHeader, uTheme.CardSurface);
+  Accent(pnlUserInfo,  uTheme.CardSurface);
+  TextLbl(lblAppTitle,   uTheme.ACCENT_BLUE, 13);
   lblAppTitle.Font.Style := [fsBold];
-  TextLbl(lblHeaderUser, clWhite, 0);
-  TextLbl(lblHeaderDate, CLR_SIDE_TEXT, 9);
+  TextLbl(lblHeaderUser, uTheme.TEXT_MAIN, 0);
+  TextLbl(lblHeaderDate, uTheme.MutedText, 9);
+  with TPanel.Create(Self) do
+  begin
+    Parent := pnlAppHeader; Align := alBottom; Height := 1;
+    BevelOuter := bvNone; ParentBackground := False;
+    StyleElements := StyleElements - [seClient];
+    Color := uTheme.HAIRLINE;
+  end;
 
-  // Sidebar — accent column
-  Accent(pnlSidebar,    uTheme.AccentHeader);
-  Accent(pnlSideHeader, uTheme.AccentActive);
-  Accent(pnlSideStatus, uTheme.AccentHeader);
-  TextLbl(lblSideTitle, CLR_SIDE_TEXT, 9);
-  TextLbl(lblDBStatus,  CLR_SIDE_TEXT, 0);
-  TextLbl(lblNetStatus, CLR_SIDE_TEXT, 0);
+  // Sidebar shell colours are applied in SetupSidebar (light theme).
+
+  // Status bar — light with muted text + a top hairline
+  Accent(pnlStatusBar, uTheme.PAGE_BG);
+  TextLbl(lblStatusUser, uTheme.MutedText, 0);
+  TextLbl(lblStatusDate, uTheme.MutedText, 0);
+  TextLbl(lblStatusTime, uTheme.MutedText, 0);
+  TextLbl(lblStatusVer,  uTheme.MutedText, 0);
+  with TPanel.Create(Self) do
+  begin
+    Parent := pnlStatusBar; Align := alTop; Height := 1;
+    BevelOuter := bvNone; ParentBackground := False;
+    StyleElements := StyleElements - [seClient];
+    Color := uTheme.HAIRLINE;
+  end;
 
   // Breadcrumb / content / status bar are left to the active style.
 end;
@@ -186,17 +201,147 @@ var
   I:              Integer;
   Item, Bar:      TPanel;
   IcoLbl, TxtLbl: TLabel;
+  HBorder, HBorder2, Chip, Dot, StatusRow, TextBox: TPanel;
+  HIco, HL1, HL2, StatusLbl: TLabel;
 begin
-  // Dark sidebar shell (slate) — keeps its identity now the accent is blue
+  // ── Light sidebar shell ──
   pnlSidebar.StyleElements    := pnlSidebar.StyleElements - [seClient];
   pnlSidebar.ParentBackground := False;
   pnlSidebar.Color            := uTheme.SIDEBAR_BG;
+
+  // Full-height hairline between content and sidebar (placed on pnlBody so it
+  // sits to the LEFT of the alRight sidebar and spans the whole height)
+  HBorder := TPanel.Create(Self);
+  HBorder.Parent       := pnlBody;
+  HBorder.Align        := alRight;
+  HBorder.Width        := 1;
+  HBorder.BevelOuter   := bvNone;
+  HBorder.StyleElements    := HBorder.StyleElements - [seClient];
+  HBorder.ParentBackground := False;
+  HBorder.Color        := uTheme.HAIRLINE;
+
+  // ── Brand / logo header ──
   pnlSideHeader.StyleElements    := pnlSideHeader.StyleElements - [seClient];
   pnlSideHeader.ParentBackground := False;
-  pnlSideHeader.Color            := uTheme.SIDEBAR_DARK;
+  pnlSideHeader.Color            := uTheme.SIDEBAR_BG;
+  pnlSideHeader.Align            := alTop;
+  pnlSideHeader.Height           := 72;
+  lblSideTitle.Visible           := False;
+
+  Chip := TPanel.Create(Self);
+  Chip.Parent       := pnlSideHeader;
+  Chip.Align        := alRight;
+  Chip.AlignWithMargins := True;
+  Chip.Margins.SetBounds(12, 16, 12, 16);
+  Chip.Width        := 40;
+  Chip.BevelOuter   := bvNone;
+  Chip.StyleElements    := Chip.StyleElements - [seClient];
+  Chip.ParentBackground := False;
+  Chip.Color        := uTheme.ACCENT_LIGHT;
+
+  HIco := TLabel.Create(Self);
+  HIco.Parent       := Chip;
+  HIco.Align        := alClient;
+  HIco.Caption      := #$E715;            // mail / telegram glyph
+  HIco.Transparent  := True;
+  HIco.StyleElements := HIco.StyleElements - [seFont];
+  HIco.Font.Name    := ICON_FONT;
+  HIco.Font.Size    := 15;
+  HIco.Font.Color   := uTheme.ACCENT_BLUE;
+  HIco.Alignment    := taCenter;
+  HIco.Layout       := tlCenter;
+
+  TextBox := TPanel.Create(Self);
+  TextBox.Parent       := pnlSideHeader;
+  TextBox.Align        := alClient;
+  TextBox.BevelOuter   := bvNone;
+  TextBox.StyleElements    := TextBox.StyleElements - [seClient];
+  TextBox.ParentBackground := False;
+  TextBox.Color        := uTheme.SIDEBAR_BG;
+
+  HL1 := TLabel.Create(Self);
+  HL1.Parent        := TextBox;
+  HL1.Align         := alTop;
+  HL1.AlignWithMargins := True;
+  HL1.Margins.SetBounds(8, 16, 8, 0);
+  HL1.Height        := 20;
+  HL1.Caption       := #1606#1592#1575#1605' '#1575#1604#1576#1585#1602#1610#1575#1578;   // نظام البرقيات
+  HL1.Transparent   := True;
+  HL1.StyleElements := HL1.StyleElements - [seFont];
+  HL1.Font.Name     := uTheme.FONT_NAME;
+  HL1.Font.Size     := 12;
+  HL1.Font.Style    := [fsBold];
+  HL1.Font.Color    := uTheme.TEXT_MAIN;
+  HL1.Layout        := tlCenter;
+  HL1.BiDiMode      := bdRightToLeft;
+  HL1.Alignment     := taLeftJustify;     // RTL -> visual right
+
+  HL2 := TLabel.Create(Self);
+  HL2.Parent        := TextBox;
+  HL2.Align         := alTop;
+  HL2.AlignWithMargins := True;
+  HL2.Margins.SetBounds(8, 0, 8, 0);
+  HL2.Height        := 16;
+  HL2.Caption       := #1575#1604#1573#1583#1575#1585#1577' '#1575#1604#1605#1585#1603#1586#1610#1577;  // الإدارة المركزية
+  HL2.Transparent   := True;
+  HL2.StyleElements := HL2.StyleElements - [seFont];
+  HL2.Font.Name     := uTheme.FONT_NAME;
+  HL2.Font.Size     := 8;
+  HL2.Font.Color    := uTheme.MutedText;
+  HL2.Layout        := tlCenter;
+  HL2.BiDiMode      := bdRightToLeft;
+  HL2.Alignment     := taLeftJustify;
+
+  HBorder2 := TPanel.Create(Self);
+  HBorder2.Parent       := pnlSideHeader;
+  HBorder2.Align        := alBottom;
+  HBorder2.Height       := 1;
+  HBorder2.BevelOuter   := bvNone;
+  HBorder2.StyleElements    := HBorder2.StyleElements - [seClient];
+  HBorder2.ParentBackground := False;
+  HBorder2.Color        := uTheme.HAIRLINE;
+
+  // ── Status footer: "النظام متصل" + green dot ──
   pnlSideStatus.StyleElements    := pnlSideStatus.StyleElements - [seClient];
   pnlSideStatus.ParentBackground := False;
   pnlSideStatus.Color            := uTheme.SIDEBAR_BG;
+  lblDBStatus.Visible  := False;
+  lblNetStatus.Visible := False;
+
+  StatusRow := TPanel.Create(Self);
+  StatusRow.Parent       := pnlSideStatus;
+  StatusRow.Align        := alBottom;
+  StatusRow.AlignWithMargins := True;
+  StatusRow.Margins.SetBounds(12, 0, 12, 14);
+  StatusRow.Height       := 18;
+  StatusRow.BevelOuter   := bvNone;
+  StatusRow.StyleElements    := StatusRow.StyleElements - [seClient];
+  StatusRow.ParentBackground := False;
+  StatusRow.Color        := uTheme.SIDEBAR_BG;
+
+  Dot := TPanel.Create(Self);
+  Dot.Parent       := StatusRow;
+  Dot.Align        := alRight;
+  Dot.AlignWithMargins := True;
+  Dot.Margins.SetBounds(0, 5, 2, 5);
+  Dot.Width        := 8;
+  Dot.BevelOuter   := bvNone;
+  Dot.StyleElements    := Dot.StyleElements - [seClient];
+  Dot.ParentBackground := False;
+  Dot.Color        := uTheme.CLR_OK_GREEN;
+
+  StatusLbl := TLabel.Create(Self);
+  StatusLbl.Parent       := StatusRow;
+  StatusLbl.Align        := alClient;
+  StatusLbl.Caption      := #1575#1604#1606#1592#1575#1605' '#1605#1578#1589#1604;   // النظام متصل
+  StatusLbl.Transparent  := True;
+  StatusLbl.StyleElements := StatusLbl.StyleElements - [seFont];
+  StatusLbl.Font.Name    := uTheme.FONT_NAME;
+  StatusLbl.Font.Size    := 8;
+  StatusLbl.Font.Color   := uTheme.MutedText;
+  StatusLbl.Layout       := tlCenter;
+  StatusLbl.BiDiMode     := bdRightToLeft;
+  StatusLbl.Alignment    := taLeftJustify;   // RTL -> hugs the right, next to the dot
 
   for I := 0 to 6 do
   begin
@@ -217,10 +362,10 @@ begin
     Item.OnMouseEnter := SideItemEnter;
     Item.OnMouseLeave := SideItemLeave;
 
-    // ── Active accent bar (RTL leading edge = right); blends in until active ─
+    // ── Active accent bar on the content-facing (left) edge; blends in until active ─
     Bar               := TPanel.Create(Self);
     Bar.Parent        := Item;
-    Bar.Align         := alRight;
+    Bar.Align         := alLeft;
     Bar.Width         := BAR_W;
     Bar.BevelOuter    := bvNone;
     Bar.StyleElements := Bar.StyleElements - [seClient];
@@ -242,7 +387,7 @@ begin
     IcoLbl.Transparent := True;
     IcoLbl.Font.Name  := ICON_FONT;
     IcoLbl.Font.Size  := 13;
-    IcoLbl.Font.Color := CLR_SIDE_TEXT;
+    IcoLbl.Font.Color := uTheme.MutedText;
     IcoLbl.Alignment  := taCenter;
     IcoLbl.Layout     := tlCenter;
     IcoLbl.Tag        := I;
@@ -262,7 +407,7 @@ begin
     TxtLbl.Transparent := True;
     TxtLbl.Font.Name  := uTheme.FONT_NAME;
     TxtLbl.Font.Size  := 11;
-    TxtLbl.Font.Color := CLR_SIDE_TEXT;
+    TxtLbl.Font.Color := uTheme.SIDEBAR_TEXT;
     // Layout: text at the LEFT, icon at the RIGHT. Under bdRightToLeft VCL flips
     // the alignment, so taRightJustify renders the caption flush to the LEFT.
     TxtLbl.Alignment  := taRightJustify;
@@ -304,8 +449,8 @@ begin
 
   FSideItems[Idx].Color     := uTheme.SIDEBAR_HOVER;
   FSideBar[Idx].Color       := uTheme.SIDEBAR_HOVER;
-  FSideIcon[Idx].Font.Color := clWhite;
-  FSideText[Idx].Font.Color := clWhite;
+  FSideIcon[Idx].Font.Color := uTheme.ACCENT_BLUE;
+  FSideText[Idx].Font.Color := uTheme.SIDEBAR_TEXT;
 end;
 
 procedure TfrmMain.SideItemLeave(Sender: TObject);
@@ -318,8 +463,8 @@ begin
 
   FSideItems[Idx].Color     := uTheme.SIDEBAR_BG;
   FSideBar[Idx].Color       := uTheme.SIDEBAR_BG;
-  FSideIcon[Idx].Font.Color := CLR_SIDE_TEXT;
-  FSideText[Idx].Font.Color := CLR_SIDE_TEXT;
+  FSideIcon[Idx].Font.Color := uTheme.MutedText;
+  FSideText[Idx].Font.Color := uTheme.SIDEBAR_TEXT;
 end;
 
 procedure TfrmMain.NavigateTo(const AKey: string);
@@ -333,10 +478,10 @@ begin
   begin
     if NAV[I].Key = AKey then
     begin
-      FSideItems[I].Color     := uTheme.ACCENT_BLUE;   // blue active fill
-      FSideBar[I].Color       := uTheme.ACCENT_LIGHT;  // light-blue edge
-      FSideIcon[I].Font.Color := clWhite;
-      FSideText[I].Font.Color := clWhite;
+      FSideItems[I].Color     := uTheme.ACCENT_LIGHT;  // light-blue active pill
+      FSideBar[I].Color       := uTheme.ACCENT_BLUE;   // blue accent edge
+      FSideIcon[I].Font.Color := uTheme.ACCENT_BLUE;
+      FSideText[I].Font.Color := uTheme.ACCENT_BLUE;
       FSideText[I].Font.Style := [fsBold];
       FActiveSideBtn := FSideItems[I];
       SetBreadcrumb(NAV[I].Caption);
@@ -345,8 +490,8 @@ begin
     begin
       FSideItems[I].Color     := uTheme.SIDEBAR_BG;
       FSideBar[I].Color       := uTheme.SIDEBAR_BG;
-      FSideIcon[I].Font.Color := CLR_SIDE_TEXT;
-      FSideText[I].Font.Color := CLR_SIDE_TEXT;
+      FSideIcon[I].Font.Color := uTheme.MutedText;
+      FSideText[I].Font.Color := uTheme.SIDEBAR_TEXT;
       FSideText[I].Font.Style := [];
     end;
   end;
