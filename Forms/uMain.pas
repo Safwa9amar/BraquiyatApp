@@ -252,7 +252,9 @@ begin
     TxtLbl.Font.Name  := uTheme.FONT_NAME;
     TxtLbl.Font.Size  := 11;
     TxtLbl.Font.Color := CLR_SIDE_TEXT;
-    TxtLbl.Alignment  := taRightJustify;
+    // Under bdRightToLeft VCL flips the alignment, so taLeftJustify renders the
+    // Arabic flush to the RIGHT — hugging the icon column (correct RTL layout).
+    TxtLbl.Alignment  := taLeftJustify;
     TxtLbl.Layout     := tlCenter;
     TxtLbl.BiDiMode   := bdRightToLeft;
     TxtLbl.Tag        := I;
