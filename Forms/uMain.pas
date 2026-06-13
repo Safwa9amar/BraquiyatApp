@@ -62,6 +62,9 @@ type
     FActiveKey:    string;
     FActiveSideBtn: TPanel;
     FSideItems:    array[0..6] of TPanel;
+    FSideBar:      array[0..6] of TPanel;   // active-state accent strip per row
+    FSideIcon:     array[0..6] of TLabel;   // icon-font glyph per row
+    FSideText:     array[0..6] of TLabel;   // Arabic caption per row
     procedure SetupColors;
     procedure SetupSidebar;
     procedure NavigateTo(const AKey: string);
@@ -79,14 +82,16 @@ var
   frmMain: TfrmMain;
 
 const
+  // Glyphs are Segoe MDL2 Assets codepoints (rendered with that icon font in
+  // SetupSidebar); see CLR_SIDE_TEXT / the icon column there.
   NAV: array[0..6] of TNavItem = (
-    (Key: 'home';     Caption: #1575#1604#1585#1574#1610#1587#1610#1577;           Glyph: #$25A3' '),
-    (Key: 'incoming'; Caption: #1575#1604#1576#1585#1602#1610#1575#1578' '#1575#1604#1608#1575#1585#1583#1577; Glyph: #$25BC' '),
-    (Key: 'outgoing'; Caption: #1575#1604#1576#1585#1602#1610#1575#1578' '#1575#1604#1589#1575#1583#1585#1577; Glyph: #$25B2' '),
-    (Key: 'routing';  Caption: #1575#1604#1578#1608#1580#1610#1607;              Glyph: #$21A9' '),
-    (Key: 'archive';  Caption: #1575#1604#1571#1585#1588#1610#1601;              Glyph: #$25A6' '),
-    (Key: 'reports';  Caption: #1575#1604#1578#1602#1575#1585#1610#1585;             Glyph: #$25A4' '),
-    (Key: 'settings'; Caption: #1575#1604#1573#1593#1583#1575#1583#1575#1578;            Glyph: #$2699' ')
+    (Key: 'home';     Caption: #1575#1604#1585#1574#1610#1587#1610#1577;           Glyph: #$E80F),  // Home
+    (Key: 'incoming'; Caption: #1575#1604#1576#1585#1602#1610#1575#1578' '#1575#1604#1608#1575#1585#1583#1577; Glyph: #$E896),  // Download / inbox
+    (Key: 'outgoing'; Caption: #1575#1604#1576#1585#1602#1610#1575#1578' '#1575#1604#1589#1575#1583#1585#1577; Glyph: #$E898),  // Upload / outbox
+    (Key: 'routing';  Caption: #1575#1604#1578#1608#1580#1610#1607;              Glyph: #$E724),  // Send
+    (Key: 'archive';  Caption: #1575#1604#1571#1585#1588#1610#1601;              Glyph: #$E7B8),  // Archive
+    (Key: 'reports';  Caption: #1575#1604#1578#1602#1575#1585#1610#1585;             Glyph: #$E8A5),  // Document
+    (Key: 'settings'; Caption: #1575#1604#1573#1593#1583#1575#1583#1575#1578;            Glyph: #$E713)   // Settings
   );
 
 implementation
@@ -172,17 +177,25 @@ begin
 end;
 
 procedure TfrmMain.SetupSidebar;
+const
+  ICON_FONT = 'Segoe MDL2 Assets';  // crisp monoline glyphs, ships with Win10+
+  ROW_H     = 42;
+  ICON_W    = 38;
+  BAR_W     = 3;
 var
-  I:    Integer;
-  Item: TPanel;
-  Lbl:  TLabel;
+  I:              Integer;
+  Item, Bar:      TPanel;
+  IcoLbl, TxtLbl: TLabel;
 begin
   for I := 0 to 6 do
   begin
+    // ── Row container ─────────────────────────────────────────────
     Item              := TPanel.Create(Self);
     Item.Parent       := pnlSidebar;
     Item.Align        := alTop;
-    Item.Height       := 36;
+    Item.AlignWithMargins := True;
+    Item.Margins.SetBounds(6, 3, 6, 0);   // side insets + gap above each row
+    Item.Height       := ROW_H;
     Item.BevelOuter   := bvNone;
     Item.StyleElements    := Item.StyleElements - [seClient];
     Item.ParentBackground := False;
@@ -193,30 +206,65 @@ begin
     Item.OnMouseEnter := SideItemEnter;
     Item.OnMouseLeave := SideItemLeave;
 
-    // Border bottom separator
-    Item.BorderWidth := 0;
+    // ── Active accent bar (RTL leading edge = right); blends in until active ─
+    Bar               := TPanel.Create(Self);
+    Bar.Parent        := Item;
+    Bar.Align         := alRight;
+    Bar.Width         := BAR_W;
+    Bar.BevelOuter    := bvNone;
+    Bar.StyleElements := Bar.StyleElements - [seClient];
+    Bar.ParentBackground := False;
+    Bar.Color         := uTheme.AccentHeader;
+    Bar.Tag           := I;
+    Bar.Cursor        := crHandPoint;
+    Bar.OnClick       := SideItemClick;
+    Bar.OnMouseEnter  := SideItemEnter;
+    Bar.OnMouseLeave  := SideItemLeave;
 
-    Lbl              := TLabel.Create(Self);
-    Lbl.Parent       := Item;
-    Lbl.Caption      := NAV[I].Glyph + NAV[I].Caption;
-    Lbl.StyleElements := Lbl.StyleElements - [seFont];
-    Lbl.Transparent  := True;
-    Lbl.Font.Color   := CLR_SIDE_TEXT;
-    Lbl.Font.Name    := uTheme.FONT_NAME;
-    Lbl.Font.Size    := 10;
-    Lbl.Layout       := tlCenter;
-    Lbl.Align        := alClient;
-    Lbl.Alignment    := taRightJustify;
-    Lbl.BiDiMode     := bdRightToLeft;
-    Lbl.Tag          := I;
-    Lbl.Cursor       := crHandPoint;
-    Lbl.OnClick      := SideItemClick;
-    Lbl.OnMouseEnter := SideItemEnter;
-    Lbl.OnMouseLeave := SideItemLeave;
+    // ── Icon column ───────────────────────────────────────────────
+    IcoLbl            := TLabel.Create(Self);
+    IcoLbl.Parent     := Item;
+    IcoLbl.Align      := alRight;
+    IcoLbl.Width      := ICON_W;
+    IcoLbl.Caption    := NAV[I].Glyph;
+    IcoLbl.StyleElements := IcoLbl.StyleElements - [seFont];
+    IcoLbl.Transparent := True;
+    IcoLbl.Font.Name  := ICON_FONT;
+    IcoLbl.Font.Size  := 13;
+    IcoLbl.Font.Color := CLR_SIDE_TEXT;
+    IcoLbl.Alignment  := taCenter;
+    IcoLbl.Layout     := tlCenter;
+    IcoLbl.Tag        := I;
+    IcoLbl.Cursor     := crHandPoint;
+    IcoLbl.OnClick    := SideItemClick;
+    IcoLbl.OnMouseEnter := SideItemEnter;
+    IcoLbl.OnMouseLeave := SideItemLeave;
 
-    // Draw bottom separator line (handled via Color only)
+    // ── Caption (fills the rest, right-justified with padding) ────
+    TxtLbl            := TLabel.Create(Self);
+    TxtLbl.Parent     := Item;
+    TxtLbl.Align      := alClient;
+    TxtLbl.AlignWithMargins := True;
+    TxtLbl.Margins.SetBounds(10, 0, 10, 0);
+    TxtLbl.Caption    := NAV[I].Caption;
+    TxtLbl.StyleElements := TxtLbl.StyleElements - [seFont];
+    TxtLbl.Transparent := True;
+    TxtLbl.Font.Name  := uTheme.FONT_NAME;
+    TxtLbl.Font.Size  := 11;
+    TxtLbl.Font.Color := CLR_SIDE_TEXT;
+    TxtLbl.Alignment  := taRightJustify;
+    TxtLbl.Layout     := tlCenter;
+    TxtLbl.BiDiMode   := bdRightToLeft;
+    TxtLbl.Tag        := I;
+    TxtLbl.Cursor     := crHandPoint;
+    TxtLbl.OnClick    := SideItemClick;
+    TxtLbl.OnMouseEnter := SideItemEnter;
+    TxtLbl.OnMouseLeave := SideItemLeave;
 
     FSideItems[I] := Item;
+    FSideBar[I]   := Bar;
+    FSideIcon[I]  := IcoLbl;
+    FSideText[I]  := TxtLbl;
   end;
 end;
 
@@ -235,36 +283,30 @@ end;
 
 procedure TfrmMain.SideItemEnter(Sender: TObject);
 var
-  Pnl: TPanel;
+  Idx: Integer;
 begin
-  if Sender is TPanel then
-    Pnl := TPanel(Sender)
-  else if Sender is TLabel then
-    Pnl := TPanel(TLabel(Sender).Parent)
-  else Exit;
+  if not (Sender is TControl) then Exit;
+  Idx := TControl(Sender).Tag;
+  if (Idx < 0) or (Idx > 6) or (FSideItems[Idx] = FActiveSideBtn) then Exit;
 
-  if Pnl <> FActiveSideBtn then
-  begin
-    Pnl.Color := uTheme.AccentHover;
-    TLabel(Pnl.Controls[0]).Font.Color := clWhite;
-  end;
+  FSideItems[Idx].Color     := uTheme.AccentHover;
+  FSideBar[Idx].Color       := uTheme.AccentHover;
+  FSideIcon[Idx].Font.Color := clWhite;
+  FSideText[Idx].Font.Color := clWhite;
 end;
 
 procedure TfrmMain.SideItemLeave(Sender: TObject);
 var
-  Pnl: TPanel;
+  Idx: Integer;
 begin
-  if Sender is TPanel then
-    Pnl := TPanel(Sender)
-  else if Sender is TLabel then
-    Pnl := TPanel(TLabel(Sender).Parent)
-  else Exit;
+  if not (Sender is TControl) then Exit;
+  Idx := TControl(Sender).Tag;
+  if (Idx < 0) or (Idx > 6) or (FSideItems[Idx] = FActiveSideBtn) then Exit;
 
-  if Pnl <> FActiveSideBtn then
-  begin
-    Pnl.Color := uTheme.AccentHeader;
-    TLabel(Pnl.Controls[0]).Font.Color := CLR_SIDE_TEXT;
-  end;
+  FSideItems[Idx].Color     := uTheme.AccentHeader;
+  FSideBar[Idx].Color       := uTheme.AccentHeader;
+  FSideIcon[Idx].Font.Color := CLR_SIDE_TEXT;
+  FSideText[Idx].Font.Color := CLR_SIDE_TEXT;
 end;
 
 procedure TfrmMain.NavigateTo(const AKey: string);
@@ -278,15 +320,21 @@ begin
   begin
     if NAV[I].Key = AKey then
     begin
-      FSideItems[I].Color := uTheme.AccentActive;
-      TLabel(FSideItems[I].Controls[0]).Font.Color := clWhite;
+      FSideItems[I].Color     := uTheme.AccentActive;
+      FSideBar[I].Color       := CLR_ACCENT;        // gold accent strip
+      FSideIcon[I].Font.Color := clWhite;
+      FSideText[I].Font.Color := clWhite;
+      FSideText[I].Font.Style := [fsBold];
       FActiveSideBtn := FSideItems[I];
       SetBreadcrumb(NAV[I].Caption);
     end
     else
     begin
-      FSideItems[I].Color := uTheme.AccentHeader;
-      TLabel(FSideItems[I].Controls[0]).Font.Color := CLR_SIDE_TEXT;
+      FSideItems[I].Color     := uTheme.AccentHeader;
+      FSideBar[I].Color       := uTheme.AccentHeader;
+      FSideIcon[I].Font.Color := CLR_SIDE_TEXT;
+      FSideText[I].Font.Color := CLR_SIDE_TEXT;
+      FSideText[I].Font.Style := [];
     end;
   end;
 
