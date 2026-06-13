@@ -279,34 +279,62 @@ end;
 procedure DrawBadgeCell(AGrid: TDBGrid; const ARect: TRect; AColumn: TColumn);
 var
   Fn, Txt: string;
-  Bg: TColor;
-  R: TRect;
+  Clr:     TColor;
+  R:       TRect;
+  Cv:      TCanvas;
+  cx, cy, tw, dotX: Integer;
 begin
   if not Assigned(AColumn.Field) then
     Exit;
   Fn := UpperCase(AColumn.Field.FieldName);
+  Cv := AGrid.Canvas;
+  cy := (ARect.Top + ARect.Bottom) div 2;
+
   if Fn = 'URGENCE' then
   begin
+    // التصنيف — coloured rounded pill with white text
     Txt := UrgencyLabel(AColumn.Field.AsString);
-    Bg  := UrgenceColor(AColumn.Field.AsString);
+    Clr := UrgenceColor(AColumn.Field.AsString);
+    Cv.Brush.Style := bsSolid;
+    Cv.FillRect(ARect);                 // erase default text, keep the row bg
+    Cv.Font.Name  := FONT_NAME;
+    Cv.Font.Size  := 8;
+    Cv.Font.Style := [fsBold];
+    tw := Cv.TextWidth(Txt) + 18;
+    cx := (ARect.Left + ARect.Right) div 2;
+    R.Left := cx - tw div 2;  R.Right  := cx + tw div 2;
+    R.Top  := cy - 8;         R.Bottom := cy + 8;
+    Cv.Brush.Color := Clr;
+    Cv.Pen.Color   := Clr;
+    Cv.RoundRect(R.Left, R.Top, R.Right, R.Bottom, 12, 12);
+    Cv.Brush.Style := bsClear;
+    Cv.Font.Color  := clWhite;
+    Cv.TextRect(R, Txt, [tfCenter, tfVerticalCenter, tfSingleLine, tfRtlReading]);
+    Cv.Brush.Style := bsSolid;
   end
   else if Fn = 'ETAT' then
   begin
-    Txt := StateLabel(AColumn.Field.AsString);
-    Bg  := EtatColor(AColumn.Field.AsString);
+    // الحالة — coloured status dot + label
+    Txt  := StateLabel(AColumn.Field.AsString);
+    Clr  := EtatColor(AColumn.Field.AsString);
+    Cv.Brush.Style := bsSolid;
+    Cv.FillRect(ARect);
+    dotX := ARect.Left + 12;
+    Cv.Brush.Color := Clr;
+    Cv.Pen.Color   := Clr;
+    Cv.Ellipse(dotX - 4, cy - 4, dotX + 4, cy + 4);
+    R := ARect;
+    R.Left := dotX + 8;
+    Cv.Brush.Style := bsClear;
+    Cv.Font.Name  := FONT_NAME;
+    Cv.Font.Size  := 9;
+    Cv.Font.Style := [];
+    Cv.Font.Color := TEXT_MAIN;
+    Cv.TextRect(R, Txt, [tfVerticalCenter, tfSingleLine, tfRtlReading]);
+    Cv.Brush.Style := bsSolid;
   end
   else
     Exit;  // not a badge column — leave default drawing untouched
-
-  AGrid.Canvas.Brush.Color := Bg;
-  AGrid.Canvas.FillRect(ARect);
-  AGrid.Canvas.Brush.Style := bsClear;
-  AGrid.Canvas.Font.Color  := clWhite;
-  AGrid.Canvas.Font.Style  := [fsBold];
-  R := ARect;
-  AGrid.Canvas.TextRect(R, Txt,
-    [tfCenter, tfVerticalCenter, tfSingleLine, tfRtlReading]);
-  AGrid.Canvas.Brush.Style := bsSolid;
 end;
 
 end.

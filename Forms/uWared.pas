@@ -71,6 +71,9 @@ uses
   uDM, uFormBraquiya, uConsts, uTheme, uUtils;
 
 procedure TfrmWared.FormCreate(Sender: TObject);
+var
+  AddBtn: TPanel;
+  AddLbl: TLabel;
 begin
   BiDiMode := bdRightToLeft;
 
@@ -146,6 +149,36 @@ begin
   grdBraquiya.OnDrawColumnCell := grdBraquiyaDrawColumnCell;
 
   uTheme.StyleForm(Self);
+
+  // ── Primary blue "إضافة جديد" (custom panel-button) + red "حذف" ──
+  btnDelete.StyleElements := btnDelete.StyleElements - [seFont];
+  btnDelete.Font.Color    := $003C4CE7;   // red
+
+  AddBtn := TPanel.Create(Self);
+  AddBtn.Parent       := pnlToolbar;
+  AddBtn.BoundsRect   := btnAdd.BoundsRect;
+  AddBtn.BevelOuter   := bvNone;
+  AddBtn.StyleElements    := AddBtn.StyleElements - [seClient];
+  AddBtn.ParentBackground := False;
+  AddBtn.Color        := uTheme.ACCENT_BLUE;
+  AddBtn.Cursor       := crHandPoint;
+  AddBtn.OnClick      := btnAddClick;
+
+  AddLbl := TLabel.Create(Self);
+  AddLbl.Parent       := AddBtn;
+  AddLbl.Align        := alClient;
+  AddLbl.Caption      := #1573#1590#1575#1601#1577' '#1580#1583#1610#1583;   // إضافة جديد
+  AddLbl.Transparent  := True;
+  AddLbl.StyleElements := AddLbl.StyleElements - [seFont];
+  AddLbl.Font.Name    := uTheme.FONT_NAME;
+  AddLbl.Font.Size    := 9;
+  AddLbl.Font.Style   := [fsBold];
+  AddLbl.Font.Color   := clWhite;
+  AddLbl.Alignment    := taCenter;
+  AddLbl.Layout       := tlCenter;
+  AddLbl.Cursor       := crHandPoint;
+  AddLbl.OnClick      := btnAddClick;
+  btnAdd.Visible      := False;
 
   LoadData;
 end;
