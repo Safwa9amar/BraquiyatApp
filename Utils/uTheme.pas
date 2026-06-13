@@ -17,7 +17,7 @@ unit uTheme;
 interface
 
 uses
-  System.SysUtils, System.IniFiles, System.Types,
+  System.SysUtils, System.Classes, System.IniFiles, System.Types,
   Data.DB,
   Vcl.Graphics, Vcl.Controls, Vcl.ExtCtrls, Vcl.StdCtrls, Vcl.Grids,
   Vcl.DBGrids, Vcl.Forms, Vcl.Themes, Vcl.Styles;
@@ -254,6 +254,7 @@ procedure DrawBadgeCell(AGrid: TDBGrid; const ARect: TRect; AColumn: TColumn);
 var
   Fn, Txt: string;
   Bg: TColor;
+  R: TRect;
 begin
   if not Assigned(AColumn.Field) then
     Exit;
@@ -276,7 +277,8 @@ begin
   AGrid.Canvas.Brush.Style := bsClear;
   AGrid.Canvas.Font.Color  := clWhite;
   AGrid.Canvas.Font.Style  := [fsBold];
-  AGrid.Canvas.TextRect(ARect, Txt,
+  R := ARect;
+  AGrid.Canvas.TextRect(R, Txt,
     [tfCenter, tfVerticalCenter, tfSingleLine, tfRtlReading]);
   AGrid.Canvas.Brush.Style := bsSolid;
 end;
