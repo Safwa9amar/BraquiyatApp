@@ -1,0 +1,23 @@
+# ── Delphi / RAD Studio build artifacts ──
+*.dcu
+*.exe
+*.identcache
+*.dproj.local
+*.~*~
+__history/
+__recovery/
+*.local
+*.tvsconfig
+*.dsk
+*.stat
+*.map
+*.drc
+*.~bom.tmp
+.bom.tmp
+
+# ── Access database lock file (transient) ──
+*.laccdb
+
+# ── OS noise ──
+.DS_Store
+Thumbs.db

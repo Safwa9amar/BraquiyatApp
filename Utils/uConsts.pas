@@ -1,0 +1,224 @@
+unit uConsts;
+
+{
+  Centralized domain codes, Arabic display labels, and the telegram state
+  lifecycle for BraquiyatApp.
+
+  Arabic labels are written with the #NNNN numeric-character encoding (the same
+  convention used throughout the project's .pas/.dfm files) so this source stays
+  codepage-safe regardless of the editor's encoding.
+
+  These codes are the authoritative values stored in the Access database
+  (columns TYPE_BRQ, ETAT, URGENCE). Every form/unit should reference these
+  constants instead of repeating magic strings.
+}
+
+interface
+
+uses
+  System.SysUtils, System.Classes;
+
+const
+  // ── Direction (BRAQUIYA.TYPE_BRQ) ─────────────────────────────
+  TYP_WARED = 'WARED';   // وارد  (incoming)
+  TYP_SADER = 'SADER';   // صادر  (outgoing)
+
+  // ── State (BRAQUIYA.ETAT) ─────────────────────────────────────
+  ST_WAREDAH = 'WAREDAH';  // واردة        (incoming, initial)
+  ST_SADERAH = 'SADERAH';  // صادرة        (outgoing, initial)
+  ST_MAWJAHA = 'MAWJAHA';  // موجهة        (routed to a service)
+  ST_MOALAJA = 'MOALAJA';  // معالجة       (processed)
+  ST_MORSAFA = 'MORSAFA';  // مؤرشفة       (archived)
+  ST_MAHDHUF = 'MAHDHUF';  // محذوفة       (soft-deleted)
+
+  // ── Urgency (BRAQUIYA.URGENCE) ────────────────────────────────
+  URG_AJIL  = 'AJIL';    // عاجل
+  URG_ADI   = 'ADI';     // عادي
+  URG_SIRRI = 'SIRRI';   // سري
+  URG_IDARI = 'IDARI';   // إداري (administrative)
+
+  // ── Business rule ─────────────────────────────────────────────
+  NORMAL_PROCESS_HOURS = 48;  // a normal telegram must be handled within 48h
+
+function StateLabel(const ACode: string): string;     // code -> Arabic label
+function StateCode(const ALabel: string): string;      // Arabic label -> code
+function UrgencyLabel(const ACode: string): string;
+function UrgencyCode(const ALabel: string): string;
+function TypeLabel(const ACode: string): string;
+
+// Arabic column header for a BRAQUIYA field name (for exports/reports)
+function HeaderLabel(const AField: string): string;
+
+// WARED -> WAREDAH, SADER -> SADERAH
+function InitialState(const ATypeBRQ: string): string;
+
+// Is a record in this state still "active" (not archived/deleted)?
+function IsActiveState(const AState: string): Boolean;
+
+// Lifecycle guard: may a record move from AFrom to ATo?
+function CanTransition(const AFrom, ATo: string): Boolean;
+
+// Fill a combo/list with the internal services (المصالح). Item 0 is a prompt.
+procedure FillServices(AItems: TStrings);
+
+implementation
+
+function StateLabel(const ACode: string): string;
+begin
+  if ACode = ST_WAREDAH then
+    Result := #1608#1575#1585#1583#1577            // واردة
+  else if ACode = ST_SADERAH then
+    Result := #1589#1575#1583#1585#1577            // صادرة
+  else if ACode = ST_MAWJAHA then
+    Result := #1605#1608#1580#1607#1577            // موجهة
+  else if ACode = ST_MOALAJA then
+    Result := #1605#1593#1575#1604#1580#1577       // معالجة
+  else if ACode = ST_MORSAFA then
+    Result := #1605#1572#1585#1588#1601#1577       // مؤرشفة
+  else if ACode = ST_MAHDHUF then
+    Result := #1605#1581#1584#1608#1601#1577       // محذوفة
+  else
+    Result := ACode;
+end;
+
+function StateCode(const ALabel: string): string;
+begin
+  if ALabel = #1608#1575#1585#1583#1577 then
+    Result := ST_WAREDAH
+  else if ALabel = #1589#1575#1583#1585#1577 then
+    Result := ST_SADERAH
+  else if ALabel = #1605#1608#1580#1607#1577 then
+    Result := ST_MAWJAHA
+  else if ALabel = #1605#1593#1575#1604#1580#1577 then
+    Result := ST_MOALAJA
+  else if ALabel = #1605#1572#1585#1588#1601#1577 then
+    Result := ST_MORSAFA
+  else if ALabel = #1605#1581#1584#1608#1601#1577 then
+    Result := ST_MAHDHUF
+  else
+    Result := '';
+end;
+
+function UrgencyLabel(const ACode: string): string;
+begin
+  if ACode = URG_AJIL then
+    Result := #1593#1575#1580#1604                 // عاجل
+  else if ACode = URG_ADI then
+    Result := #1593#1575#1583#1610                 // عادي
+  else if ACode = URG_SIRRI then
+    Result := #1587#1585#1610                      // سري
+  else if ACode = URG_IDARI then
+    Result := #1573#1583#1575#1585#1610            // إداري
+  else
+    Result := ACode;
+end;
+
+function UrgencyCode(const ALabel: string): string;
+begin
+  if ALabel = #1593#1575#1580#1604 then
+    Result := URG_AJIL
+  else if ALabel = #1593#1575#1583#1610 then
+    Result := URG_ADI
+  else if ALabel = #1587#1585#1610 then
+    Result := URG_SIRRI
+  else if ALabel = #1573#1583#1575#1585#1610 then
+    Result := URG_IDARI
+  else
+    Result := '';
+end;
+
+function TypeLabel(const ACode: string): string;
+begin
+  if ACode = TYP_WARED then
+    Result := #1608#1575#1585#1583                 // وارد
+  else if ACode = TYP_SADER then
+    Result := #1589#1575#1583#1585                 // صادر
+  else
+    Result := ACode;
+end;
+
+function HeaderLabel(const AField: string): string;
+var
+  F: string;
+begin
+  F := UpperCase(AField);
+  if F = 'NUM_BRQ' then
+    Result := #1585#1602#1605' '#1575#1604#1576#1585#1602#1610#1577        // رقم البرقية
+  else if F = 'DATE_REC' then
+    Result := #1575#1604#1578#1575#1585#1610#1582                          // التاريخ
+  else if F = 'OBJET' then
+    Result := #1575#1604#1605#1608#1590#1608#1593                          // الموضوع
+  else if F = 'CONTENU' then
+    Result := #1606#1589' '#1575#1604#1576#1585#1602#1610#1577            // نص البرقية
+  else if F = 'REMARQUES' then
+    Result := #1605#1604#1575#1581#1592#1575#1578                          // ملاحظات
+  else if F = 'URGENCE' then
+    Result := #1575#1604#1575#1587#1578#1593#1580#1575#1604               // الاستعجال
+  else if F = 'TYPE_BRQ' then
+    Result := #1575#1604#1606#1608#1593                                    // النوع
+  else if F = 'ETAT' then
+    Result := #1575#1604#1581#1575#1604#1577                              // الحالة
+  else if F = 'NOM_JIHA' then
+    Result := #1575#1604#1580#1607#1577' '#1575#1604#1605#1585#1587#1604#1577 // الجهة المرسلة
+  else if F = 'SERVICE' then
+    Result := #1575#1604#1605#1589#1604#1581#1577                          // المصلحة
+  else
+    Result := AField;
+end;
+
+function InitialState(const ATypeBRQ: string): string;
+begin
+  if ATypeBRQ = TYP_SADER then
+    Result := ST_SADERAH
+  else
+    Result := ST_WAREDAH;
+end;
+
+function IsActiveState(const AState: string): Boolean;
+begin
+  Result := (AState = ST_WAREDAH) or (AState = ST_SADERAH) or
+            (AState = ST_MAWJAHA) or (AState = ST_MOALAJA);
+end;
+
+procedure FillServices(AItems: TStrings);
+begin
+  AItems.Clear;
+  AItems.Add('-- ' + #1575#1582#1578#1585' '#1575#1604#1605#1589#1604#1581#1577 + ' --');   // اختر المصلحة
+  AItems.Add(#1605#1603#1578#1576' '#1575#1604#1608#1575#1604#1610);                          // مكتب الوالي
+  AItems.Add(#1605#1589#1604#1581#1577' '#1575#1604#1573#1583#1575#1585#1577' '#1575#1604#1593#1575#1605#1577); // مصلحة الإدارة العامة
+  AItems.Add(#1605#1589#1604#1581#1577' '#1575#1604#1578#1593#1604#1610#1605);                 // مصلحة التعليم
+  AItems.Add(#1605#1589#1604#1581#1577' '#1575#1604#1589#1581#1577);                           // مصلحة الصحة
+  AItems.Add(#1605#1589#1604#1581#1577' '#1575#1604#1601#1604#1575#1581#1577);                 // مصلحة الفلاحة
+  AItems.Add(#1605#1589#1604#1581#1577' '#1575#1604#1605#1575#1604#1610#1577);                 // مصلحة المالية
+  AItems.Add(#1605#1589#1604#1581#1577' '#1575#1604#1575#1580#1578#1605#1575#1593#1610#1577);   // مصلحة الاجتماعية
+  AItems.Add(#1605#1589#1604#1581#1577' '#1575#1604#1578#1593#1605#1610#1585);                 // مصلحة التعمير
+end;
+
+function CanTransition(const AFrom, ATo: string): Boolean;
+begin
+  Result := False;
+  if AFrom = ATo then
+    Exit;
+
+  // Soft delete: any active record, or an archived one, can be deleted
+  if ATo = ST_MAHDHUF then
+    Exit(IsActiveState(AFrom) or (AFrom = ST_MORSAFA));
+
+  // Restore: an archived or deleted record returns to an initial state
+  if (ATo = ST_WAREDAH) or (ATo = ST_SADERAH) then
+    Exit((AFrom = ST_MORSAFA) or (AFrom = ST_MAHDHUF));
+
+  // Route: an incoming/outgoing item is directed to a service
+  if ATo = ST_MAWJAHA then
+    Exit((AFrom = ST_WAREDAH) or (AFrom = ST_SADERAH));
+
+  // Process
+  if ATo = ST_MOALAJA then
+    Exit((AFrom = ST_WAREDAH) or (AFrom = ST_SADERAH) or (AFrom = ST_MAWJAHA));
+
+  // Archive
+  if ATo = ST_MORSAFA then
+    Exit((AFrom = ST_MAWJAHA) or (AFrom = ST_MOALAJA));
+end;
+
+end.
