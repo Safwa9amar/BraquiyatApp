@@ -283,7 +283,6 @@ var
   R:       TRect;
   Cv:      TCanvas;
   cx, cy, tw, dotX: Integer;
-  Flags:   Cardinal;
 begin
   if not Assigned(AColumn.Field) then
     Exit;
@@ -311,8 +310,9 @@ begin
     Cv.RoundRect(R.Left, R.Top, R.Right, R.Bottom, 14, 14);
     Cv.Brush.Style := bsClear;
     Cv.Font.Color  := clWhite;
-    Flags := DT_CENTER or DT_VCENTER or DT_SINGLELINE or DT_RTLREADING;
-    Winapi.Windows.DrawText(Cv.Handle, PChar(Txt), Length(Txt), R, Flags);
+    SetTextAlign(Cv.Handle, TA_CENTER or TA_TOP);
+    Cv.TextOut(cx, cy - Cv.TextHeight(Txt) div 2, Txt);
+    SetTextAlign(Cv.Handle, TA_LEFT or TA_TOP);
     Cv.Brush.Style := bsSolid;
   end
   else if Fn = 'ETAT' then
@@ -333,8 +333,8 @@ begin
     Cv.Font.Size  := 9;
     Cv.Font.Style := [];
     Cv.Font.Color := TEXT_MAIN;
-    Flags := DT_LEFT or DT_VCENTER or DT_SINGLELINE or DT_RTLREADING;
-    Winapi.Windows.DrawText(Cv.Handle, PChar(Txt), Length(Txt), R, Flags);
+    SetTextAlign(Cv.Handle, TA_LEFT or TA_TOP);
+    Cv.TextOut(R.Left, cy - Cv.TextHeight(Txt) div 2, Txt);
     Cv.Brush.Style := bsSolid;
   end
   else
