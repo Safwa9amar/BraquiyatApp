@@ -11,6 +11,21 @@ type
   // Raised by the data layer with a friendly Arabic message; forms catch it.
   EDataError = class(Exception);
 
+  // Extended telegram metadata seen on real correspondence (المراسلات الرسمية),
+  // persisted to the BRAQUIYA columns created by EnsureBraquiyaColumns.
+  TBraquiyaExt = record
+    MsgRef:       string;     // MSG-BAY NR-…   (رقم الإرسال)
+    RefNum:       string;     // رقم المراسلة
+    Heure:        string;     // الوقت (e.g. 20H00)
+    Destinataire: string;     // المرسل إليه
+    Signataire:   string;     // الممضي / الصفة
+    Tabligh:      string;     // جهة التبليغ / للإعلام
+    RefPrec:      string;     // المرجع (برقيات سابقة)
+    Copie:        string;     // نسخة إلى
+    NumArrivee:   string;     // رقم الوارد
+    DateArrivee:  TDateTime;  // تاريخ الورود (0 = none)
+  end;
+
   TDM = class(TDataModule)
     Conn:       TADOConnection;
     // ── Queries ──────────────────────────
@@ -27,8 +42,10 @@ type
     FCurrentRole:   string;
     FCurrentName:   string;
     FHasServiceCol: Boolean;
+    FHasExtCols:    Boolean;
     FqRecent:       TADOQuery;
     procedure RaiseDataError(E: Exception);
+    procedure EnsureBraquiyaColumns;
     function  ProbeColumn(const ATable, ACol: string): Boolean;
     function  CountQuery(const ASQL: string): Integer; overload;
     function  CountQuery(const ASQL, AParam: string;
@@ -39,8 +56,12 @@ type
     property CurrentRole:      string  read FCurrentRole write FCurrentRole;
     property CurrentName:      string  read FCurrentName;
     property HasServiceColumn: Boolean read FHasServiceCol;
+    property HasExtColumns:    Boolean read FHasExtCols;
 
     function  Login(AUser, APass: string): Boolean;
+
+    // Persist the extended (real-correspondence) fields for one telegram.
+    procedure SaveBraquiyaExt(ANum: Integer; const E: TBraquiyaExt);
 
     procedure OpenBraquiyat(AType, AEtat, AUrgence: string;
                             ADateFrom, ADateTo: TDate;
@@ -85,6 +106,8 @@ implementation
 
 {$R *.dfm}
 
+function ACEDateLit(const D: TDateTime): string; forward;
+
 procedure TDM.DataModuleCreate(Sender: TObject);
 var
   DBPath: string;
@@ -113,6 +136,79 @@ begin
   FqRecent.CursorType     := ctStatic;
 
   FHasServiceCol := False;
+  FHasExtCols    := False;
+  EnsureBraquiyaColumns;   // add any missing real-correspondence columns
+end;
+
+procedure TDM.EnsureBraquiyaColumns;
+
+  // Add one column if it isn't already present. Non-destructive: ADD COLUMN
+  // only creates an empty, nullable field; existing rows/data are untouched.
+  procedure AddCol(const ACol, ADef: string);
+  begin
+    if ProbeColumn('BRAQUIYA', ACol) then Exit;
+    try
+      Conn.Execute('ALTER TABLE BRAQUIYA ADD COLUMN [' + ACol + '] ' + ADef);
+    except
+      // Ignore (e.g. read-only DB): the column stays absent and the app
+      // degrades gracefully via the FHasExtCols / FHasServiceCol flags.
+    end;
+  end;
+
+begin
+  AddCol('MSG_REF',      'TEXT(60)');    // رقم الإرسال (MSG-BAY NR-…)
+  AddCol('REF_NUM',      'TEXT(60)');    // رقم المراسلة
+  AddCol('HEURE',        'TEXT(10)');    // الوقت
+  AddCol('DESTINATAIRE', 'TEXT(200)');   // المرسل إليه
+  AddCol('SIGNATAIRE',   'TEXT(120)');   // الممضي / الصفة
+  AddCol('TABLIGH',      'TEXT(200)');   // جهة التبليغ / للإعلام
+  AddCol('REF_PREC',     'MEMO');        // المرجع (برقيات سابقة)
+  AddCol('COPIE',        'TEXT(200)');   // نسخة إلى
+  AddCol('NUM_ARRIVEE',  'TEXT(40)');    // رقم الوارد
+  AddCol('DATE_ARRIVEE', 'DATETIME');    // تاريخ الورود
+  AddCol('SERVICE',      'TEXT(80)');    // المصلحة (routing — also ensured)
+
+  FHasExtCols    := ProbeColumn('BRAQUIYA', 'MSG_REF');
+  FHasServiceCol := ProbeColumn('BRAQUIYA', 'SERVICE');
+end;
+
+procedure TDM.SaveBraquiyaExt(ANum: Integer; const E: TBraquiyaExt);
+var
+  q: TADOQuery;
+  DateLit: string;
+begin
+  if not FHasExtCols then Exit;
+  // Bind a Date/Time column with an ACE literal, not a parameter (see ACEDateLit).
+  DateLit := 'Null';
+  if E.DateArrivee > 0 then
+    DateLit := ACEDateLit(E.DateArrivee);
+
+  q := TADOQuery.Create(nil);
+  try
+    try
+      q.Connection := Conn;
+      q.SQL.Text :=
+        'UPDATE BRAQUIYA SET MSG_REF=:a, REF_NUM=:b, HEURE=:c, ' +
+        'DESTINATAIRE=:d, SIGNATAIRE=:e, TABLIGH=:f, REF_PREC=:g, ' +
+        'COPIE=:h, NUM_ARRIVEE=:i, DATE_ARRIVEE=' + DateLit + ' ' +
+        'WHERE NUM_BRQ=:n';
+      q.Parameters.ParamByName('a').Value := E.MsgRef;
+      q.Parameters.ParamByName('b').Value := E.RefNum;
+      q.Parameters.ParamByName('c').Value := E.Heure;
+      q.Parameters.ParamByName('d').Value := E.Destinataire;
+      q.Parameters.ParamByName('e').Value := E.Signataire;
+      q.Parameters.ParamByName('f').Value := E.Tabligh;
+      q.Parameters.ParamByName('g').Value := E.RefPrec;
+      q.Parameters.ParamByName('h').Value := E.Copie;
+      q.Parameters.ParamByName('i').Value := E.NumArrivee;
+      q.Parameters.ParamByName('n').Value := ANum;
+      q.ExecSQL;
+    except
+      on Ex: Exception do RaiseDataError(Ex);
+    end;
+  finally
+    q.Free;
+  end;
 end;
 
 procedure TDM.RaiseDataError(E: Exception);
