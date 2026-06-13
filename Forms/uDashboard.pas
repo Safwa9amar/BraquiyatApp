@@ -32,6 +32,8 @@ type
     FFill:     array[0..3] of TPanel;   // priority bar colored fill
     FPcts:     array[0..3] of TLabel;   // priority percentage label
     FPctVal:   array[0..3] of Integer;  // cached percentage (for resize)
+    FRowUrg:   array[0..8] of string;   // per-row urgency code (for badge color)
+    FRowEtat:  array[0..8] of string;   // per-row state code (for status dot)
     procedure CreateStatCards;
     procedure SetupRecentGrid;
     procedure SetupBottomStats;
@@ -305,7 +307,7 @@ end;
 
 procedure TfrmDashboard.GridResize(Sender: TObject);
 const
-  W: array[0..5] of Double = (0.10, 0.13, 0.18, 0.31, 0.14, 0.14);
+  W: array[0..5] of Double = (0.12, 0.15, 0.17, 0.24, 0.15, 0.17);
 var
   G: TStringGrid;
   Avail, I, Used, ColW: Integer;
@@ -333,10 +335,11 @@ var
   G:      TStringGrid;
   Cv:     TCanvas;
   Txt:    string;
-  Bg, Fg: TColor;
+  Bg, Fg, BadgeClr: TColor;
   Flags:  Cardinal;
   R:      TRect;
   Dark:   Boolean;
+  tw, cx, cy, dotX: Integer;
 begin
   G    := TStringGrid(Sender);
   Cv   := G.Canvas;
@@ -367,6 +370,54 @@ begin
   Cv.Brush.Style := bsSolid;
   Cv.Brush.Color := Bg;
   Cv.FillRect(Rect);
+
+  cy := (Rect.Top + Rect.Bottom) div 2;
+
+  // ── Urgency badge (col 4): filled rounded pill, white text ──
+  if (ARow >= 1) and (ACol = 4) and (FRowUrg[ARow] <> '') then
+  begin
+    BadgeClr := uTheme.UrgenceColor(FRowUrg[ARow]);
+    Cv.Font.Name  := uTheme.FONT_NAME;
+    Cv.Font.Size  := 8;
+    Cv.Font.Style := [fsBold];
+    tw := Cv.TextWidth(Txt) + 20;
+    cx := (Rect.Left + Rect.Right) div 2;
+    R.Left := cx - tw div 2;  R.Right  := cx + tw div 2;
+    R.Top  := cy - 10;        R.Bottom := cy + 10;
+    Cv.Brush.Style := bsSolid;
+    Cv.Brush.Color := BadgeClr;
+    Cv.Pen.Color   := BadgeClr;
+    Cv.RoundRect(R.Left, R.Top, R.Right, R.Bottom, 14, 14);
+    Cv.Brush.Style := bsClear;
+    Cv.Font.Color  := clWhite;
+    Flags := DT_CENTER or DT_VCENTER or DT_SINGLELINE or DT_RTLREADING;
+    Winapi.Windows.DrawText(Cv.Handle, PChar(Txt), Length(Txt), R, Flags);
+    Cv.Brush.Style := bsSolid;
+    Exit;
+  end;
+
+  // ── State (col 5): colored status dot on the right + label ──
+  if (ARow >= 1) and (ACol = 5) and (FRowEtat[ARow] <> '') then
+  begin
+    BadgeClr := uTheme.EtatColor(FRowEtat[ARow]);
+    dotX := Rect.Right - 14;
+    Cv.Brush.Style := bsSolid;
+    Cv.Brush.Color := BadgeClr;
+    Cv.Pen.Color   := BadgeClr;
+    Cv.Ellipse(dotX - 4, cy - 4, dotX + 4, cy + 4);
+    R := Rect;
+    R.Right := dotX - 8;
+    Cv.Brush.Style := bsClear;
+    Cv.Font.Name  := uTheme.FONT_NAME;
+    Cv.Font.Size  := 9;
+    Cv.Font.Style := [];
+    if gdSelected in State then Cv.Font.Color := uTheme.ACCENT_BLUE
+    else Cv.Font.Color := Fg;
+    Flags := DT_RIGHT or DT_VCENTER or DT_SINGLELINE or DT_RTLREADING or DT_END_ELLIPSIS;
+    Winapi.Windows.DrawText(Cv.Handle, PChar(Txt), Length(Txt), R, Flags);
+    Cv.Brush.Style := bsSolid;
+    Exit;
+  end;
 
   if Trim(Txt) <> '' then
   begin
@@ -552,8 +603,12 @@ begin
 
   // Recent telegrams grid (clear data rows, keep header row 0)
   for Row := 1 to sgRecent.RowCount - 1 do
+  begin
     for I := 0 to sgRecent.ColCount - 1 do
       sgRecent.Cells[I, Row] := '';
+    FRowUrg[Row]  := '';
+    FRowEtat[Row] := '';
+  end;
 
   rq := DM.OpenRecent(sgRecent.RowCount - 1);
   Row := 1;
@@ -565,11 +620,15 @@ begin
         FormatDateTime('yyyy/mm/dd', rq.FieldByName('DATE_REC').AsDateTime);
     sgRecent.Cells[2, Row] := rq.FieldByName('NOM_JIHA').AsString;
     sgRecent.Cells[3, Row] := rq.FieldByName('OBJET').AsString;
-    sgRecent.Cells[4, Row] := UrgencyLabel(rq.FieldByName('URGENCE').AsString);
-    sgRecent.Cells[5, Row] := StateLabel(rq.FieldByName('ETAT').AsString);
+    // store codes (for badge/dot colours) + labels (for the drawn text)
+    FRowUrg[Row]  := rq.FieldByName('URGENCE').AsString;
+    FRowEtat[Row] := rq.FieldByName('ETAT').AsString;
+    sgRecent.Cells[4, Row] := UrgencyLabel(FRowUrg[Row]);
+    sgRecent.Cells[5, Row] := StateLabel(FRowEtat[Row]);
     rq.Next;
     Inc(Row);
   end;
+  sgRecent.Invalidate;
 
   // Priority-distribution bars
   Total := 0;
