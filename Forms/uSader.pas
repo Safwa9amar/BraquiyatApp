@@ -11,9 +11,9 @@ uses
   Data.DB;
 
 const
-  CLR_PANEL  = $00D8E9EC;
-  CLR_NAVY   = $0064381F;
-  CLR_BG     = $00C8D0D4;
+  CLR_PANEL  = $00FFFFFF;   // white surfaces
+  CLR_NAVY   = $00D84E1D;   // primary blue (#1D4ED8)
+  CLR_BG     = $00FAF8F7;   // near-white page (#F7F8FA)
 
 type
   TfrmSader = class(TForm)
@@ -73,22 +73,31 @@ procedure TfrmSader.FormCreate(Sender: TObject);
 begin
   BiDiMode := bdRightToLeft;
 
+  // Light theme surfaces — remove seClient so the colours render under the style
+  pnlMain.StyleElements    := pnlMain.StyleElements - [seClient];
+  pnlMain.ParentBackground := False;
   pnlMain.Color      := CLR_BG;
   pnlMain.BevelOuter := bvNone;
+  pnlToolbar.StyleElements    := pnlToolbar.StyleElements - [seClient];
+  pnlToolbar.ParentBackground := False;
   pnlToolbar.Color      := CLR_PANEL;
   pnlToolbar.BevelOuter := bvNone;
   pnlToolbar.Height     := 32;
+  pnlSearch.StyleElements    := pnlSearch.StyleElements - [seClient];
+  pnlSearch.ParentBackground := False;
   pnlSearch.Color      := CLR_PANEL;
   pnlSearch.BevelOuter := bvNone;
   pnlSearch.Height     := 32;
+  pnlFooter.StyleElements    := pnlFooter.StyleElements - [seClient];
+  pnlFooter.ParentBackground := False;
   pnlFooter.Color      := CLR_PANEL;
   pnlFooter.BevelOuter := bvNone;
   pnlFooter.Height     := 22;
 
   grdBraquiya.Color      := clWhite;
-  grdBraquiya.FixedColor := CLR_PANEL;
-  grdBraquiya.Font.Name  := 'Tahoma';
-  grdBraquiya.Font.Size  := 8;
+  grdBraquiya.FixedColor := $00FAFAF9;   // light header band
+  grdBraquiya.Font.Name  := uTheme.FONT_NAME;
+  grdBraquiya.Font.Size  := 9;
 
   btnAdd.Caption     := #1573#1590#1575#1601#1577;
   btnEdit.Caption    := #1578#1593#1583#1610#1604;

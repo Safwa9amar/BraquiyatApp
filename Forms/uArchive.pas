@@ -10,9 +10,9 @@ uses
   Vcl.Controls, Vcl.ComCtrls, Vcl.Graphics, Vcl.Dialogs, Data.DB;
 
 const
-  CLR_PANEL = $00D8E9EC;
-  CLR_NAVY  = $0064381F;
-  CLR_BG    = $00C8D0D4;
+  CLR_PANEL = $00FFFFFF;   // white surfaces
+  CLR_NAVY  = $00D84E1D;   // primary blue (#1D4ED8)
+  CLR_BG    = $00FAF8F7;   // near-white page (#F7F8FA)
 
 type
   TfrmArchive = class(TForm)
@@ -67,19 +67,28 @@ begin
   BiDiMode := bdRightToLeft;
   Color    := CLR_BG;
 
+  // Light theme surfaces — remove seClient so the colours render under the style
+  pnlMain.StyleElements    := pnlMain.StyleElements - [seClient];
+  pnlMain.ParentBackground := False;
   pnlMain.Color      := CLR_BG;
   pnlMain.BevelOuter := bvNone;
+  pnlToolbar.StyleElements    := pnlToolbar.StyleElements - [seClient];
+  pnlToolbar.ParentBackground := False;
   pnlToolbar.Color   := CLR_PANEL;
   pnlToolbar.BevelOuter := bvNone;
+  pnlSearch.StyleElements    := pnlSearch.StyleElements - [seClient];
+  pnlSearch.ParentBackground := False;
   pnlSearch.Color    := CLR_PANEL;
   pnlSearch.BevelOuter := bvNone;
+  pnlFooter.StyleElements    := pnlFooter.StyleElements - [seClient];
+  pnlFooter.ParentBackground := False;
   pnlFooter.Color    := CLR_PANEL;
   pnlFooter.BevelOuter := bvNone;
 
   grdArchive.Color      := clWhite;
-  grdArchive.FixedColor := CLR_PANEL;
-  grdArchive.Font.Name  := 'Tahoma';
-  grdArchive.Font.Size  := 8;
+  grdArchive.FixedColor := $00FAFAF9;   // light header band
+  grdArchive.Font.Name  := uTheme.FONT_NAME;
+  grdArchive.Font.Size  := 9;
 
   btnRefresh.Caption := #1578#1581#1583#1610#1579;
   btnRestore.Caption := #1575#1587#1578#1593#1575#1583#1577;
