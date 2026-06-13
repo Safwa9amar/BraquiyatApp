@@ -17,6 +17,7 @@ unit uTheme;
 interface
 
 uses
+  Winapi.Windows,
   System.SysUtils, System.Classes, System.IniFiles, System.Types,
   Data.DB,
   Vcl.Graphics, Vcl.Controls, Vcl.ExtCtrls, Vcl.StdCtrls, Vcl.Grids,
@@ -77,6 +78,7 @@ procedure StyleAccentPanel(APanel: TPanel; ALabel: TLabel);
 procedure StyleAsCard(APanel: TPanel);
 procedure StyleGrid(AGrid: TDBGrid);
 procedure StyleForm(AForm: TForm);
+procedure RoundPanel(AControl: TWinControl; ARadius: Integer);  // rounded-corner region
 
 // Telegram-grid helpers: Arabic titles, hidden TYPE_BRQ, badge cell drawing.
 procedure SetupBraquiyaGrid(AGrid: TDBGrid);              // call after dataset is open
@@ -226,6 +228,16 @@ procedure StyleForm(AForm: TForm);
 begin
   AForm.Font.Name := FONT_NAME;
   AForm.Font.Size := FONT_BASE;
+end;
+
+// Clip a control to a rounded rectangle. Must be re-applied whenever the
+// control resizes (the region is fixed to the current Width/Height).
+procedure RoundPanel(AControl: TWinControl; ARadius: Integer);
+begin
+  if AControl.HandleAllocated then
+    SetWindowRgn(AControl.Handle,
+      CreateRoundRectRgn(0, 0, AControl.Width + 1, AControl.Height + 1,
+        ARadius, ARadius), True);
 end;
 
 procedure SetupBraquiyaGrid(AGrid: TDBGrid);
