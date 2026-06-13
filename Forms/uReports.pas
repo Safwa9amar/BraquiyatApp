@@ -49,6 +49,17 @@ begin
   uTheme.StyleForm(Self);
   uTheme.StyleAccentPanel(pnlHeader, lblTitle);
 
+  // Center the header title across the full accent band.
+  lblTitle.Align     := alClient;
+  lblTitle.Alignment := taCenter;
+  lblTitle.Layout    := tlCenter;
+  lblTitle.Font.Size := 13;
+
+  // Make the preview text fill its panel and read centered.
+  lblPreview.Align     := alClient;
+  lblPreview.Alignment := taCenter;
+  lblPreview.Layout    := tlCenter;
+
   cmbReportType.Items.AddStrings([
     'تقرير البرقيات الواردة',
     'تقرير البرقيات الصادرة',

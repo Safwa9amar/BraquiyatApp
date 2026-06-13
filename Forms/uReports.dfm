@@ -2,7 +2,7 @@ object frmReports: TfrmReports
   Left = 0
   Top = 0
   BiDiMode = bdRightToLeft
-  Caption = #216#167#217#8222#216#170#217#8218#216#167#216#177#217#352#216#177
+  Caption = #1575#1604#1578#1602#1575#1585#1610#1585
   ClientHeight = 500
   ClientWidth = 740
   Color = clBtnFace
@@ -39,7 +39,7 @@ object frmReports: TfrmReports
         Width = 166
         Height = 18
         Alignment = taCenter
-        Caption = #216#167#217#8222#216#170#217#8218#216#167#216#177#217#352#216#177
+        Caption = #1575#1604#1578#1602#1575#1585#1610#1585
         Font.Charset = DEFAULT_CHARSET
         Font.Color = clWhite
         Font.Height = -15
@@ -63,21 +63,21 @@ object frmReports: TfrmReports
         Top = 12
         Width = 159
         Height = 16
-        Caption = #217#8224#217#710#216#185' '#216#167#217#8222#216#170#217#8218#216#177#217#352#216#177':'
+        Caption = #1606#1608#1593' '#1575#1604#1578#1602#1585#1610#1585':'
       end
       object lblDateFrom: TLabel
         Left = 392
         Top = 52
         Width = 128
         Height = 16
-        Caption = #217#8230#217#8224' '#216#170#216#167#216#177#217#352#216#174':'
+        Caption = #1605#1606' '#1578#1575#1585#1610#1582':'
       end
       object lblDateTo: TLabel
         Left = 171
         Top = 52
         Width = 149
         Height = 16
-        Caption = #216#165#217#8222#217#8240' '#216#170#216#167#216#177#217#352#216#174':'
+        Caption = #1573#1604#1609' '#1578#1575#1585#1610#1582':'
       end
       object cmbReportType: TComboBox
         Left = 300
@@ -110,7 +110,7 @@ object frmReports: TfrmReports
         Top = 46
         Width = 120
         Height = 28
-        Caption = #216#170#217#710#217#8222#217#352#216#175' '#216#167#217#8222#216#170#217#8218#216#177#217#352#216#177
+        Caption = #1578#1608#1604#1610#1583' '#1575#1604#1578#1602#1585#1610#1585
         TabOrder = 3
         OnClick = btnGenerateClick
       end
@@ -119,7 +119,7 @@ object frmReports: TfrmReports
         Top = 46
         Width = 70
         Height = 28
-        Caption = #216#183#216#168#216#167#216#185#216#169
+        Caption = #1591#1576#1575#1593#1577
         TabOrder = 4
         OnClick = btnPrintClick
       end
@@ -128,7 +128,7 @@ object frmReports: TfrmReports
         Top = 46
         Width = 70
         Height = 28
-        Caption = #216#170#216#181#216#175#217#352#216#177
+        Caption = #1578#1589#1583#1610#1585
         TabOrder = 5
         OnClick = btnExportClick
       end
@@ -147,7 +147,7 @@ object frmReports: TfrmReports
         Width = 435
         Height = 16
         Alignment = taCenter
-        Caption = #216#167#216#182#216#186#216#183' "'#216#170#217#710#217#8222#217#352#216#175' '#216#167#217#8222#216#170#217#8218#216#177#217#352#216#177'" '#217#8222#216#185#216#177#216#182' '#216#167#217#8222#217#8224#216#170#216#167#216#166#216#172
+        Caption = #1575#1590#1594#1591' "'#1578#1608#1604#1610#1583' '#1575#1604#1578#1602#1585#1610#1585'" '#1604#1593#1585#1590' '#1575#1604#1606#1578#1575#1574#1580
         Font.Charset = DEFAULT_CHARSET
         Font.Color = clWindowText
         Font.Height = -13

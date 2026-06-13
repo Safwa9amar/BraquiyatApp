@@ -120,6 +120,15 @@ begin
   raise EDataError.Create('تعذر تنفيذ العملية: ' + E.Message);
 end;
 
+{ Locale-independent ACE/Jet date literal (#yyyy-mm-dd#). Used instead of an ADO
+  date parameter: a TDate bound to Parameters.Value is sent as a numeric variant,
+  which Jet rejects against a Date/Time column with
+  "data type mismatch in criteria expression". An ISO literal is unambiguous. }
+function ACEDateLit(const D: TDateTime): string;
+begin
+  Result := '#' + FormatDateTime('yyyy-mm-dd', D) + '#';
+end;
+
 function TDM.Login(AUser, APass: string): Boolean;
 var
   q: TADOQuery;
@@ -153,31 +162,39 @@ var
   SQL: string;
 begin
   try
+    // Date range is embedded as ACE date literals (see ACEDateLit). The upper
+    // bound uses "< ADateTo + 1 day" so it stays inclusive of any time-of-day
+    // stored in DATE_REC.
     SQL :=
       'SELECT B.NUM_BRQ, B.DATE_REC, B.OBJET, B.URGENCE, ' +
       '       B.ETAT, B.TYPE_BRQ, J.NOM_JIHA ' +
       'FROM BRAQUIYA B ' +
       'LEFT JOIN JIHA J ON B.ID_JIHA = J.ID_JIHA ' +
-      'WHERE B.DATE_REC BETWEEN :d1 AND :d2 ' +
-      'AND B.ETAT <> :del ';
+      'WHERE B.DATE_REC >= ' + ACEDateLit(ADateFrom) +
+      ' AND B.DATE_REC < '   + ACEDateLit(ADateTo + 1) +
+      ' AND B.ETAT <> :del ';
     if AType    <> '' then SQL := SQL + 'AND B.TYPE_BRQ = :tp ';
     if AEtat    <> '' then SQL := SQL + 'AND B.ETAT = :et ';
     if AUrgence <> '' then SQL := SQL + 'AND B.URGENCE = :ur ';
+    // ADO maps each :name to a positional "?"; a name reused in one statement
+    // must use distinct parameters, so the search uses :s1/:s2/:s3.
     if ASearch  <> '' then
       SQL := SQL +
-        'AND (B.OBJET LIKE :s OR B.CONTENU LIKE :s OR J.NOM_JIHA LIKE :s) ';
+        'AND (B.OBJET LIKE :s1 OR B.CONTENU LIKE :s2 OR J.NOM_JIHA LIKE :s3) ';
     SQL := SQL + 'ORDER BY B.DATE_REC DESC';
 
     qBraquiya.Close;
     qBraquiya.SQL.Text := SQL;
-    qBraquiya.Parameters.ParamByName('d1').Value  := ADateFrom;
-    qBraquiya.Parameters.ParamByName('d2').Value  := ADateTo;
     qBraquiya.Parameters.ParamByName('del').Value := ST_MAHDHUF;
     if AType    <> '' then qBraquiya.Parameters.ParamByName('tp').Value := AType;
     if AEtat    <> '' then qBraquiya.Parameters.ParamByName('et').Value := AEtat;
     if AUrgence <> '' then qBraquiya.Parameters.ParamByName('ur').Value := AUrgence;
     if ASearch  <> '' then
-      qBraquiya.Parameters.ParamByName('s').Value := '%' + ASearch + '%';
+    begin
+      qBraquiya.Parameters.ParamByName('s1').Value := '%' + ASearch + '%';
+      qBraquiya.Parameters.ParamByName('s2').Value := '%' + ASearch + '%';
+      qBraquiya.Parameters.ParamByName('s3').Value := '%' + ASearch + '%';
+    end;
     qBraquiya.Open;
   except
     on E: Exception do RaiseDataError(E);
@@ -193,14 +210,13 @@ begin
       '       B.ETAT, B.TYPE_BRQ, J.NOM_JIHA ' +
       'FROM BRAQUIYA B ' +
       'LEFT JOIN JIHA J ON B.ID_JIHA = J.ID_JIHA ' +
-      'WHERE B.DATE_REC BETWEEN :d1 AND :d2 ' +
-      'AND B.ETAT IN (' + QuotedStr(ST_WAREDAH) + ',' +
+      'WHERE B.DATE_REC >= ' + ACEDateLit(ADateFrom) +
+      ' AND B.DATE_REC < '   + ACEDateLit(ADateTo + 1) +
+      ' AND B.ETAT IN (' + QuotedStr(ST_WAREDAH) + ',' +
                           QuotedStr(ST_SADERAH) + ',' +
                           QuotedStr(ST_MAWJAHA) + ',' +
                           QuotedStr(ST_MOALAJA) + ') ' +
       'ORDER BY B.DATE_REC DESC';
-    qBraquiya.Parameters.ParamByName('d1').Value := ADateFrom;
-    qBraquiya.Parameters.ParamByName('d2').Value := ADateTo;
     qBraquiya.Open;
   except
     on E: Exception do RaiseDataError(E);
