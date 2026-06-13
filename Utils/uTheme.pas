@@ -283,6 +283,7 @@ var
   R:       TRect;
   Cv:      TCanvas;
   cx, cy, tw, dotX: Integer;
+  Flags:   Cardinal;
 begin
   if not Assigned(AColumn.Field) then
     Exit;
@@ -300,16 +301,18 @@ begin
     Cv.Font.Name  := FONT_NAME;
     Cv.Font.Size  := 8;
     Cv.Font.Style := [fsBold];
-    tw := Cv.TextWidth(Txt) + 18;
+    tw := Cv.TextWidth(Txt) + 22;
+    if tw < 46 then tw := 46;
     cx := (ARect.Left + ARect.Right) div 2;
     R.Left := cx - tw div 2;  R.Right  := cx + tw div 2;
-    R.Top  := cy - 8;         R.Bottom := cy + 8;
+    R.Top  := cy - 9;         R.Bottom := cy + 9;
     Cv.Brush.Color := Clr;
     Cv.Pen.Color   := Clr;
-    Cv.RoundRect(R.Left, R.Top, R.Right, R.Bottom, 12, 12);
+    Cv.RoundRect(R.Left, R.Top, R.Right, R.Bottom, 14, 14);
     Cv.Brush.Style := bsClear;
     Cv.Font.Color  := clWhite;
-    Cv.TextRect(R, Txt, [tfCenter, tfVerticalCenter, tfSingleLine, tfRtlReading]);
+    Flags := DT_CENTER or DT_VCENTER or DT_SINGLELINE or DT_RTLREADING;
+    Winapi.Windows.DrawText(Cv.Handle, PChar(Txt), Length(Txt), R, Flags);
     Cv.Brush.Style := bsSolid;
   end
   else if Fn = 'ETAT' then
@@ -330,7 +333,8 @@ begin
     Cv.Font.Size  := 9;
     Cv.Font.Style := [];
     Cv.Font.Color := TEXT_MAIN;
-    Cv.TextRect(R, Txt, [tfVerticalCenter, tfSingleLine, tfRtlReading]);
+    Flags := DT_LEFT or DT_VCENTER or DT_SINGLELINE or DT_RTLREADING;
+    Winapi.Windows.DrawText(Cv.Handle, PChar(Txt), Length(Txt), R, Flags);
     Cv.Brush.Style := bsSolid;
   end
   else
