@@ -28,10 +28,15 @@ type
     FValLbls:  array[0..3] of TLabel;
     FUrgBody:  TLabel;
     FStatBody: TLabel;
+    FTrack:    array[0..3] of TPanel;   // priority bar track
+    FFill:     array[0..3] of TPanel;   // priority bar colored fill
+    FPcts:     array[0..3] of TLabel;   // priority percentage label
+    FPctVal:   array[0..3] of Integer;  // cached percentage (for resize)
     procedure CreateStatCards;
     procedure SetupRecentGrid;
     procedure SetupBottomStats;
     procedure CardsResize(Sender: TObject);
+    procedure BarsResize(Sender: TObject);
     procedure GridResize(Sender: TObject);
     procedure GridDrawCell(Sender: TObject; ACol, ARow: Integer; Rect: TRect;
       State: TGridDrawState);
@@ -54,6 +59,9 @@ const
   CLR_NAVY   = $00D84E1D;   // primary blue (#1D4ED8) — matches uTheme accent
   CLR_BORDER = $00848284;
   CLR_BG     = $00FAF8F7;   // near-white page background (#F7F8FA)
+
+  // Urgency codes shown (in order) by the priority-distribution card
+  PRIORITY_URG: array[0..3] of string = (URG_AJIL, URG_ADI, URG_SIRRI, URG_IDARI);
 
 type
   TCtrlCrack = class(TControl);   // exposes the protected OnResize event
@@ -218,6 +226,8 @@ begin
   pnlRecent.Color      := uTheme.CardSurface;
   pnlRecent.BevelOuter := bvNone;
   pnlRecent.Align      := alClient;
+  pnlRecent.AlignWithMargins := True;
+  pnlRecent.Margins.SetBounds(8, 8, 16, 12);   // gap from the priority card + edges
 
   pnlRecentHdr.StyleElements    := pnlRecentHdr.StyleElements - [seClient];
   pnlRecentHdr.ParentBackground := False;
@@ -379,63 +389,156 @@ begin
 end;
 
 procedure TfrmDashboard.SetupBottomStats;
+
+  procedure MakeBarRow(AIndex: Integer);
+  var
+    row, head, track, fill: TPanel;
+    lName, lPct: TLabel;
+  begin
+    row := TPanel.Create(Self);
+    row.Parent       := pnlBottom;
+    row.Align        := alTop;
+    row.AlignWithMargins := True;
+    row.Margins.SetBounds(0, 0, 0, 14);
+    row.Height       := 34;
+    row.BevelOuter   := bvNone;
+    row.StyleElements    := row.StyleElements - [seClient];
+    row.ParentBackground := False;
+    row.Color        := uTheme.CardSurface;
+
+    head := TPanel.Create(Self);
+    head.Parent      := row;
+    head.Align       := alTop;
+    head.Height      := 18;
+    head.BevelOuter  := bvNone;
+    head.StyleElements    := head.StyleElements - [seClient];
+    head.ParentBackground := False;
+    head.Color       := uTheme.CardSurface;
+
+    lPct := TLabel.Create(Self);
+    lPct.Parent      := head;
+    lPct.Align       := alRight;
+    lPct.Width       := 50;
+    lPct.Caption     := '0%';
+    lPct.Transparent := True;
+    lPct.StyleElements := lPct.StyleElements - [seFont];
+    lPct.Font.Name   := uTheme.FONT_NAME;
+    lPct.Font.Size   := 9;
+    lPct.Font.Style  := [fsBold];
+    lPct.Font.Color  := uTheme.TEXT_MAIN;
+    lPct.Layout      := tlCenter;
+    lPct.Alignment   := taLeftJustify;   // RTL flip -> percentage hugs the right
+
+    lName := TLabel.Create(Self);
+    lName.Parent     := head;
+    lName.Align      := alClient;
+    lName.Caption    := UrgencyLabel(PRIORITY_URG[AIndex]);
+    lName.Transparent := True;
+    lName.StyleElements := lName.StyleElements - [seFont];
+    lName.Font.Name  := uTheme.FONT_NAME;
+    lName.Font.Size  := 9;
+    lName.Font.Color := uTheme.TEXT_MAIN;
+    lName.Layout     := tlCenter;
+    lName.BiDiMode   := bdRightToLeft;
+    lName.Alignment  := taRightJustify;  // RTL flip -> name hugs the left
+
+    track := TPanel.Create(Self);
+    track.Parent     := row;
+    track.Align      := alTop;
+    track.AlignWithMargins := True;
+    track.Margins.SetBounds(0, 6, 0, 0);
+    track.Height     := 8;
+    track.BevelOuter := bvNone;
+    track.StyleElements    := track.StyleElements - [seClient];
+    track.ParentBackground := False;
+    track.Color      := $00EBE7E5;        // light gray track
+
+    fill := TPanel.Create(Self);
+    fill.Parent      := track;
+    fill.Align       := alLeft;
+    fill.Width       := 0;
+    fill.BevelOuter  := bvNone;
+    fill.StyleElements    := fill.StyleElements - [seClient];
+    fill.ParentBackground := False;
+    fill.Color       := uTheme.UrgenceColor(PRIORITY_URG[AIndex]);
+
+    FTrack[AIndex] := track;
+    FFill[AIndex]  := fill;
+    FPcts[AIndex]  := lPct;
+  end;
+
+var
+  lblHdr, lblFoot: TLabel;
+  I: Integer;
 begin
-  pnlBottom.Color      := CLR_BG;
+  // The old two-column breakdown is replaced by a priority-distribution card
+  pnlUrgStats.Visible  := False;
+  pnlStatStats.Visible := False;
+
+  pnlBottom.Align      := alLeft;
+  pnlBottom.AlignWithMargins := True;
+  pnlBottom.Margins.SetBounds(16, 8, 8, 12);
+  pnlBottom.Width      := 340;
   pnlBottom.BevelOuter := bvNone;
-  pnlBottom.Height     := 60;
-  pnlBottom.Align      := alBottom;
+  pnlBottom.StyleElements    := pnlBottom.StyleElements - [seClient];
+  pnlBottom.ParentBackground := False;
+  pnlBottom.Color      := uTheme.CardSurface;
+  pnlBottom.Padding.SetBounds(18, 14, 18, 14);
+  TCtrlCrack(pnlBottom).OnResize := BarsResize;
 
-  pnlUrgStats.Color      := clWhite;
-  pnlUrgStats.BevelOuter := bvNone;
-  pnlUrgStats.BorderStyle := bsSingle;
-  pnlUrgStats.Align       := alRight;
-  pnlUrgStats.Width       := pnlBottom.ClientWidth div 2 - 4;
+  lblHdr := TLabel.Create(Self);
+  lblHdr.Parent      := pnlBottom;
+  lblHdr.Align       := alTop;
+  lblHdr.AlignWithMargins := True;
+  lblHdr.Margins.SetBounds(0, 0, 0, 14);
+  lblHdr.Height      := 22;
+  lblHdr.Caption     := #1578#1608#1586#1610#1593' '#1575#1604#1576#1585#1602#1610#1575#1578' '#1581#1587#1576' '#1575#1604#1571#1608#1604#1608#1610#1577;
+  lblHdr.Transparent := True;
+  lblHdr.StyleElements := lblHdr.StyleElements - [seFont];
+  lblHdr.Font.Name   := uTheme.FONT_NAME;
+  lblHdr.Font.Size   := 11;
+  lblHdr.Font.Style  := [fsBold];
+  lblHdr.Font.Color  := uTheme.TEXT_MAIN;
+  lblHdr.Layout      := tlCenter;
+  lblHdr.BiDiMode    := bdRightToLeft;
+  lblHdr.Alignment   := taLeftJustify;
 
-  pnlUrgHdr.Caption    := '  ' + #1578#1608#1586#1610#1593' '#1575#1604#1576#1585#1602#1610#1575#1578' '#1581#1587#1576' '#1575#1604#1575#1587#1578#1593#1580#1575#1604#1610#1577;
-  pnlUrgHdr.Color      := CLR_NAVY;
-  pnlUrgHdr.Font.Color := clWhite;
-  pnlUrgHdr.Font.Style := [fsBold];
-  pnlUrgHdr.Align      := alTop;
-  pnlUrgHdr.Height     := 20;
+  lblFoot := TLabel.Create(Self);
+  lblFoot.Parent     := pnlBottom;
+  lblFoot.Align      := alBottom;
+  lblFoot.Height     := 18;
+  lblFoot.Caption    := #1578#1605' '#1578#1581#1583#1610#1579' '#1575#1604#1573#1581#1589#1575#1574#1610#1575#1578' '#1575#1604#1570#1606;
+  lblFoot.Transparent := True;
+  lblFoot.StyleElements := lblFoot.StyleElements - [seFont];
+  lblFoot.Font.Name  := uTheme.FONT_NAME;
+  lblFoot.Font.Size  := 8;
+  lblFoot.Font.Color := uTheme.MutedText;
+  lblFoot.Layout     := tlCenter;
+  lblFoot.BiDiMode   := bdRightToLeft;
+  lblFoot.Alignment  := taLeftJustify;
 
-  pnlStatStats.Color      := clWhite;
-  pnlStatStats.BevelOuter := bvNone;
-  pnlStatStats.BorderStyle := bsSingle;
-  pnlStatStats.Align       := alClient;
+  for I := 0 to 3 do
+    MakeBarRow(I);
+end;
 
-  pnlStatHdr.Caption    := '  ' + #1575#1604#1576#1585#1602#1610#1575#1578' '#1581#1587#1576' '#1575#1604#1581#1575#1604#1577;
-  pnlStatHdr.Color      := CLR_NAVY;
-  pnlStatHdr.Font.Color := clWhite;
-  pnlStatHdr.Font.Style := [fsBold];
-  pnlStatHdr.Align      := alTop;
-  pnlStatHdr.Height     := 20;
-
-  // Body labels that hold the live breakdown numbers (filled by RefreshStats)
-  FUrgBody := TLabel.Create(Self);
-  FUrgBody.Parent    := pnlUrgStats;
-  FUrgBody.Align     := alClient;
-  FUrgBody.Alignment := taCenter;
-  FUrgBody.Layout    := tlCenter;
-  FUrgBody.WordWrap  := True;
-  FUrgBody.BiDiMode  := bdRightToLeft;
-  FUrgBody.Font.Name := uTheme.FONT_NAME;
-  FUrgBody.Font.Size := 10;
-
-  FStatBody := TLabel.Create(Self);
-  FStatBody.Parent    := pnlStatStats;
-  FStatBody.Align     := alClient;
-  FStatBody.Alignment := taCenter;
-  FStatBody.Layout    := tlCenter;
-  FStatBody.WordWrap  := True;
-  FStatBody.BiDiMode  := bdRightToLeft;
-  FStatBody.Font.Name := uTheme.FONT_NAME;
-  FStatBody.Font.Size := 10;
+procedure TfrmDashboard.BarsResize(Sender: TObject);
+var
+  I, tw: Integer;
+begin
+  for I := 0 to 3 do
+    if Assigned(FFill[I]) and Assigned(FTrack[I]) then
+    begin
+      tw := FTrack[I].ClientWidth;
+      if tw > 0 then
+        FFill[I].Width := Round(FPctVal[I] / 100 * tw);
+    end;
 end;
 
 procedure TfrmDashboard.RefreshStats;
 var
   Counts: array[0..3] of Integer;
-  I, Row: Integer;
+  Cnt:    array[0..3] of Integer;
+  I, Row, Total: Integer;
   rq:     TDataSet;
 begin
   Counts[0] := DM.GetCountToday(TYP_WARED);
@@ -468,21 +571,23 @@ begin
     Inc(Row);
   end;
 
-  // Breakdown panels
-  if Assigned(FUrgBody) then
-    FUrgBody.Caption :=
-      UrgencyLabel(URG_AJIL)  + ': ' + IntToStr(DM.GetCountByUrgency(URG_AJIL))  + '     ' +
-      UrgencyLabel(URG_ADI)   + ': ' + IntToStr(DM.GetCountByUrgency(URG_ADI))   + '     ' +
-      UrgencyLabel(URG_SIRRI) + ': ' + IntToStr(DM.GetCountByUrgency(URG_SIRRI)) + '     ' +
-      UrgencyLabel(URG_IDARI) + ': ' + IntToStr(DM.GetCountByUrgency(URG_IDARI));
-
-  if Assigned(FStatBody) then
-    FStatBody.Caption :=
-      StateLabel(ST_WAREDAH) + ': ' + IntToStr(DM.GetCountByState(ST_WAREDAH)) + '     ' +
-      StateLabel(ST_SADERAH) + ': ' + IntToStr(DM.GetCountByState(ST_SADERAH)) + '     ' +
-      StateLabel(ST_MAWJAHA) + ': ' + IntToStr(DM.GetCountByState(ST_MAWJAHA)) + '     ' +
-      StateLabel(ST_MOALAJA) + ': ' + IntToStr(DM.GetCountByState(ST_MOALAJA)) + '     ' +
-      StateLabel(ST_MORSAFA) + ': ' + IntToStr(DM.GetCountByState(ST_MORSAFA));
+  // Priority-distribution bars
+  Total := 0;
+  for I := 0 to 3 do
+  begin
+    Cnt[I] := DM.GetCountByUrgency(PRIORITY_URG[I]);
+    Inc(Total, Cnt[I]);
+  end;
+  for I := 0 to 3 do
+  begin
+    if Total > 0 then
+      FPctVal[I] := Round(Cnt[I] / Total * 100)
+    else
+      FPctVal[I] := 0;
+    if Assigned(FPcts[I]) then
+      FPcts[I].Caption := IntToStr(FPctVal[I]) + '%';
+  end;
+  BarsResize(pnlBottom);
 end;
 
 end.
