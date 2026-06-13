@@ -7,7 +7,8 @@ uses
   System.SysUtils, System.Classes, System.StrUtils,
   Vcl.Forms, Vcl.StdCtrls, Vcl.ExtCtrls,
   Vcl.Controls, Vcl.ComCtrls, Vcl.Graphics, Vcl.Dialogs,
-  Data.Win.ADODB;
+  Data.Win.ADODB,
+  uDM;   // TBraquiyaExt is used in the class declaration
 
 const
   CLR_PANEL  = $00D8E9EC;
@@ -67,11 +68,29 @@ type
     FMode:    string;
     FTypeBRQ: string;
     FNumBRQ:  Integer;
+    FAttachPath:    string;    // picked full path OR stored relative name
+    FAttachChanged: Boolean;
+    FBtnAttach:     TButton;
+    FLblAttach:     TLabel;
+    // Real-correspondence (extended) fields, created in code (BuildExtFields).
+    edtMsgRef, edtRefNum, edtHeure, edtNumArr,
+    edtDest, edtSign, edtTabligh, edtCopie: TEdit;
+    memRefPrec: TMemo;
+    dtArrivee:  TDateTimePicker;
+    pnlSecExt:  TPanel;
     procedure LoadJihat;
     procedure LoadServices;
     procedure LoadRecord(ANum: Integer);
     function  Validate: Boolean;
     procedure StyleSection(AHdr: TPanel; ABody: TPanel; const ATitle: string);
+    procedure BuildAttachUI;
+    procedure AttachClick(Sender: TObject);
+    procedure OpenAttachClick(Sender: TObject);
+    procedure SaveAttachment(ANum: Integer);
+    function  AttachFolder: string;
+    procedure BuildExtFields;
+    function  BuildExt: TBraquiyaExt;
+    procedure ClearExtFields;
   public
     procedure SetMode(const AMode, AType: string); overload;
     procedure SetMode(const AMode: string; ANum: Integer); overload;
@@ -86,7 +105,7 @@ implementation
 
 uses
   System.IOUtils,
-  uDM, uConsts, uTheme, uUtils;
+  uConsts, uTheme, uUtils;
 
 procedure TfrmFormBraquiya.FormCreate(Sender: TObject);
 begin
@@ -94,7 +113,7 @@ begin
   BorderStyle := bsDialog;
   Position    := poMainFormCenter;
   Width       := 560;
-  Height      := 580;
+  Height      := 640;
   Color       := CLR_BG;
 
   // Header (accent band that survives the active VCL style)
@@ -147,9 +166,210 @@ begin
 
   LoadJihat;
   LoadServices;
+  BuildExtFields;
+  BuildAttachUI;
 
   btnPrint.OnClick := btnPrintClick;
   uTheme.StyleForm(Self);
+end;
+
+procedure TfrmFormBraquiya.BuildExtFields;
+var
+  sbox: TScrollBox;
+  hdr:  TPanel;
+
+  procedure Lbl(ALeft, ATop: Integer; const ACap: string);
+  var L: TLabel;
+  begin
+    L := TLabel.Create(Self);
+    L.Parent   := pnlSecExt;
+    L.Left     := ALeft;
+    L.Top      := ATop;
+    L.Caption  := ACap;
+    L.Font.Name := 'Tahoma';
+    L.Font.Size := 10;
+  end;
+
+  function Edt(ATop, AWidth: Integer): TEdit;
+  begin
+    Result := TEdit.Create(Self);
+    Result.Parent   := pnlSecExt;
+    Result.Left     := 8;
+    Result.Top      := ATop;
+    Result.Width    := AWidth;
+    Result.Height   := 22;
+    Result.Font.Name := 'Tahoma';
+    Result.Font.Size := 10;
+    Result.BiDiMode  := bdRightToLeft;
+  end;
+
+begin
+  // Make the field area scrollable so the longer form fits any screen.
+  sbox := TScrollBox.Create(Self);
+  sbox.Parent      := pnlScroll;
+  sbox.Align       := alClient;
+  sbox.BorderStyle := bsNone;
+  sbox.Color       := CLR_BG;
+  sbox.ParentColor := False;
+  pnlSec1.Parent := sbox;
+  pnlSec2.Parent := sbox;
+  pnlSec3.Parent := sbox;
+
+  // New section: all the real-correspondence fields.
+  pnlSecExt := TPanel.Create(Self);
+  pnlSecExt.Parent     := sbox;
+  pnlSecExt.Left       := 8;
+  pnlSecExt.Width      := 544;
+  pnlSecExt.Top        := 458;
+  pnlSecExt.Height     := 372;
+  pnlSecExt.BevelOuter := bvLowered;
+  pnlSecExt.Color      := 16119024;
+
+  hdr := TPanel.Create(Self);
+  hdr.Parent := pnlSecExt;
+  TLabel.Create(Self).Parent := hdr;   // StyleSection styles Controls[0]
+  StyleSection(hdr, pnlSecExt,
+    #1576#1610#1575#1606#1575#1578' '#1575#1604#1605#1585#1575#1587#1604#1577);  // بيانات المراسلة
+
+  Lbl(460,  34, #1585#1602#1605' '#1575#1604#1573#1585#1587#1575#1604':');       // رقم الإرسال
+  edtMsgRef := Edt(32, 444);
+  Lbl(460,  64, #1585#1602#1605' '#1575#1604#1605#1585#1575#1587#1604#1577':');   // رقم المراسلة
+  edtRefNum := Edt(62, 444);
+  Lbl(460,  94, #1575#1604#1608#1602#1578':');                                    // الوقت
+  edtHeure  := Edt(92, 130);
+  Lbl(460, 124, #1575#1604#1605#1585#1587#1604' '#1573#1604#1610#1607':');        // المرسل إليه
+  edtDest   := Edt(122, 444);
+  Lbl(460, 154, #1575#1604#1605#1605#1590#1610':');                               // الممضي
+  edtSign   := Edt(152, 444);
+  Lbl(460, 184, #1580#1607#1577' '#1575#1604#1578#1576#1604#1610#1594':');        // جهة التبليغ
+  edtTabligh := Edt(182, 444);
+  Lbl(460, 214, #1606#1587#1582#1577' '#1573#1604#1609':');                       // نسخة إلى
+  edtCopie  := Edt(212, 444);
+  Lbl(460, 244, #1585#1602#1605' '#1575#1604#1608#1575#1585#1583':');             // رقم الوارد
+  edtNumArr := Edt(242, 130);
+  Lbl(460, 274, #1578#1575#1585#1610#1582' '#1575#1604#1608#1585#1608#1583':');   // تاريخ الورود
+  dtArrivee := TDateTimePicker.Create(Self);
+  dtArrivee.Parent    := pnlSecExt;
+  dtArrivee.Left      := 8;
+  dtArrivee.Top       := 272;
+  dtArrivee.Width     := 200;
+  dtArrivee.Font.Name := 'Tahoma';
+  dtArrivee.Font.Size := 10;
+  dtArrivee.Date      := Date;
+  Lbl(460, 304, #1575#1604#1605#1585#1580#1593':');                              // المرجع (سابق)
+  memRefPrec := TMemo.Create(Self);
+  memRefPrec.Parent    := pnlSecExt;
+  memRefPrec.Left      := 8;
+  memRefPrec.Top       := 302;
+  memRefPrec.Width     := 444;
+  memRefPrec.Height    := 56;
+  memRefPrec.Font.Name := 'Tahoma';
+  memRefPrec.Font.Size := 10;
+  memRefPrec.ScrollBars := ssVertical;
+  memRefPrec.BiDiMode   := bdRightToLeft;
+end;
+
+function TfrmFormBraquiya.BuildExt: TBraquiyaExt;
+begin
+  Result.MsgRef       := Trim(edtMsgRef.Text);
+  Result.RefNum       := Trim(edtRefNum.Text);
+  Result.Heure        := Trim(edtHeure.Text);
+  Result.Destinataire := Trim(edtDest.Text);
+  Result.Signataire   := Trim(edtSign.Text);
+  Result.Tabligh      := Trim(edtTabligh.Text);
+  Result.RefPrec      := Trim(memRefPrec.Text);
+  Result.Copie        := Trim(edtCopie.Text);
+  Result.NumArrivee   := Trim(edtNumArr.Text);
+  Result.DateArrivee  := dtArrivee.Date;
+end;
+
+procedure TfrmFormBraquiya.ClearExtFields;
+begin
+  edtMsgRef.Text  := '';  edtRefNum.Text  := '';  edtHeure.Text := '';
+  edtDest.Text    := '';  edtSign.Text    := '';  edtTabligh.Text := '';
+  edtCopie.Text   := '';  edtNumArr.Text  := '';  memRefPrec.Text := '';
+  dtArrivee.Date  := Date;
+end;
+
+function TfrmFormBraquiya.AttachFolder: string;
+begin
+  Result := ExtractFilePath(ParamStr(0)) + 'Attachments' + PathDelim;
+end;
+
+procedure TfrmFormBraquiya.BuildAttachUI;
+begin
+  // Lives in the free (right) part of the footer band.
+  FBtnAttach := TButton.Create(Self);
+  FBtnAttach.Parent  := pnlFooter;
+  FBtnAttach.SetBounds(8, 7, 104, 26);
+  FBtnAttach.Caption := #1573#1585#1601#1575#1602' '#1605#1604#1601;   // إرفاق ملف
+  FBtnAttach.OnClick := AttachClick;
+
+  FLblAttach := TLabel.Create(Self);
+  FLblAttach.Parent      := pnlFooter;
+  FLblAttach.AutoSize    := False;
+  FLblAttach.SetBounds(120, 13, 162, 16);
+  FLblAttach.EllipsisPosition := epEndEllipsis;
+  FLblAttach.Caption := '(' + #1604#1575' '#1610#1608#1580#1583' '#1605#1604#1601 + ')';  // (لا يوجد ملف)
+  FLblAttach.Cursor    := crHandPoint;
+  FLblAttach.OnClick   := OpenAttachClick;
+  FLblAttach.Font.Color := clBlue;
+end;
+
+procedure TfrmFormBraquiya.AttachClick(Sender: TObject);
+var
+  Dlg: TOpenDialog;
+begin
+  Dlg := TOpenDialog.Create(Self);
+  try
+    Dlg.Filter :=
+      #1603#1604' '#1575#1604#1605#1604#1601#1575#1578 + '|*.*|' +   // كل الملفات
+      'PDF|*.pdf|' +
+      #1589#1608#1585 + '|*.jpg;*.jpeg;*.png|' +                    // صور
+      'Word|*.doc;*.docx';
+    if Dlg.Execute then
+    begin
+      FAttachPath        := Dlg.FileName;
+      FAttachChanged     := True;
+      FLblAttach.Caption := ExtractFileName(FAttachPath);
+    end;
+  finally
+    Dlg.Free;
+  end;
+end;
+
+procedure TfrmFormBraquiya.OpenAttachClick(Sender: TObject);
+var
+  P: string;
+begin
+  if FAttachPath = '' then Exit;
+  P := FAttachPath;
+  if not FileExists(P) then
+    P := AttachFolder + FAttachPath;   // a stored relative name
+  if FileExists(P) then
+    uUtils.OpenFileExternally(P)
+  else
+    ShowMessage(#1604#1575' '#1610#1608#1580#1583' '#1605#1604#1601' '#1605#1585#1601#1602);  // لا يوجد ملف مرفق
+end;
+
+procedure TfrmFormBraquiya.SaveAttachment(ANum: Integer);
+var
+  Dest, NewName: string;
+begin
+  if (not FAttachChanged) or (FAttachPath = '') then Exit;
+  if not FileExists(FAttachPath) then Exit;   // only copy a freshly-picked file
+  Dest := AttachFolder;
+  ForceDirectories(Dest);
+  NewName := 'BRQ' + IntToStr(ANum) + '_' + ExtractFileName(FAttachPath);
+  try
+    TFile.Copy(FAttachPath, Dest + NewName, True);
+    DM.SetAttachment(ANum, NewName);
+    FAttachPath    := NewName;     // now a stored relative name
+    FAttachChanged := False;
+  except
+    on E: Exception do
+      ShowMessage(#1601#1588#1604' '#1606#1587#1582' '#1575#1604#1605#1604#1601 + ': ' + E.Message);  // فشل نسخ الملف
+  end;
 end;
 
 procedure TfrmFormBraquiya.StyleSection(AHdr: TPanel; ABody: TPanel;
@@ -225,6 +445,12 @@ begin
     lblFormTitle.Caption := #1573#1590#1575#1601#1577' '#1576#1585#1602#1610#1577' '#1589#1575#1583#1585#1577' '#1580#1583#1610#1583#1577;
 
   pnlSec3.Visible := (AType = 'WARED');
+  if pnlSec3.Visible then pnlSecExt.Top := 458 else pnlSecExt.Top := 322;
+
+  ClearExtFields;
+  FAttachPath    := '';
+  FAttachChanged := False;
+  FLblAttach.Caption := '(' + #1604#1575' '#1610#1608#1580#1583' '#1605#1604#1601 + ')';  // (لا يوجد ملف)
 end;
 
 procedure TfrmFormBraquiya.SetMode(const AMode: string; ANum: Integer);
@@ -282,8 +508,32 @@ begin
         if Idx >= 0 then cmbService.ItemIndex := Idx;
       end;
 
+      // Extended (real-correspondence) fields — guarded so missing columns
+      // never break loading.
+      if Assigned(q.FindField('MSG_REF'))      then edtMsgRef.Text  := q.FieldByName('MSG_REF').AsString;
+      if Assigned(q.FindField('REF_NUM'))      then edtRefNum.Text  := q.FieldByName('REF_NUM').AsString;
+      if Assigned(q.FindField('HEURE'))        then edtHeure.Text   := q.FieldByName('HEURE').AsString;
+      if Assigned(q.FindField('DESTINATAIRE')) then edtDest.Text    := q.FieldByName('DESTINATAIRE').AsString;
+      if Assigned(q.FindField('SIGNATAIRE'))   then edtSign.Text    := q.FieldByName('SIGNATAIRE').AsString;
+      if Assigned(q.FindField('TABLIGH'))      then edtTabligh.Text := q.FieldByName('TABLIGH').AsString;
+      if Assigned(q.FindField('REF_PREC'))     then memRefPrec.Text := q.FieldByName('REF_PREC').AsString;
+      if Assigned(q.FindField('COPIE'))        then edtCopie.Text   := q.FieldByName('COPIE').AsString;
+      if Assigned(q.FindField('NUM_ARRIVEE'))  then edtNumArr.Text  := q.FieldByName('NUM_ARRIVEE').AsString;
+      if Assigned(q.FindField('DATE_ARRIVEE')) and
+         not q.FieldByName('DATE_ARRIVEE').IsNull then
+        dtArrivee.DateTime := q.FieldByName('DATE_ARRIVEE').AsDateTime;
+
+      if Assigned(q.FindField('ATTACHMENT')) and
+         (q.FieldByName('ATTACHMENT').AsString <> '') then
+      begin
+        FAttachPath        := q.FieldByName('ATTACHMENT').AsString;
+        FAttachChanged     := False;
+        FLblAttach.Caption := FAttachPath;
+      end;
+
       // Show the routing section only for incoming telegrams.
       pnlSec3.Visible := (FTypeBRQ = TYP_WARED);
+      if pnlSec3.Visible then pnlSecExt.Top := 458 else pnlSecExt.Top := 322;
     end;
   finally
     q.Free;
@@ -338,6 +588,8 @@ begin
         if Service <> '' then
           DM.SetService(NewNum, Service);
         FNumBRQ := NewNum;
+        DM.SaveBraquiyaExt(NewNum, BuildExt);
+        SaveAttachment(NewNum);
         ShowMessage(#1578#1605' '#1581#1601#1592' '#1575#1604#1576#1585#1602#1610#1577' '#1585#1602#1605' ' +
                     IntToStr(NewNum) + ' ' + #1576#1606#1580#1575#1581);
         ModalResult := mrOk;
@@ -349,6 +601,8 @@ begin
     begin
       DM.UpdateBraquiya(FNumBRQ, edtObjet.Text, Urg, memContenu.Text,
         memRem.Text, JihaID, dtDate.DateTime, Service);
+      DM.SaveBraquiyaExt(FNumBRQ, BuildExt);
+      SaveAttachment(FNumBRQ);
       ModalResult := mrOk;
     end;
   except
@@ -360,6 +614,14 @@ procedure TfrmFormBraquiya.btnPrintClick(Sender: TObject);
 var
   SL: TStringList;
   F: string;
+
+  procedure Row(const AField, AValue: string);
+  begin
+    if Trim(AValue) <> '' then
+      SL.Add('<tr><td class="k">' + HeaderLabel(AField) + '</td><td>' +
+             AValue + '</td></tr>');
+  end;
+
 begin
   SL := TStringList.Create;
   try
@@ -382,6 +644,16 @@ begin
            memContenu.Text + '</td></tr>');
     SL.Add('<tr><td class="k">' + HeaderLabel('REMARQUES') + '</td><td>' +
            memRem.Text + '</td></tr>');
+    Row('MSG_REF',      edtMsgRef.Text);
+    Row('REF_NUM',      edtRefNum.Text);
+    Row('HEURE',        edtHeure.Text);
+    Row('DESTINATAIRE', edtDest.Text);
+    Row('SIGNATAIRE',   edtSign.Text);
+    Row('TABLIGH',      edtTabligh.Text);
+    Row('REF_PREC',     memRefPrec.Text);
+    Row('COPIE',        edtCopie.Text);
+    Row('NUM_ARRIVEE',  edtNumArr.Text);
+    Row('ATTACHMENT',   ExtractFileName(FAttachPath));
     SL.Add('</table></body></html>');
     F := TPath.Combine(TPath.GetTempPath, 'braquiya_print.html');
     SL.SaveToFile(F, TEncoding.UTF8);

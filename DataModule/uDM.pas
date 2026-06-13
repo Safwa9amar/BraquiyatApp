@@ -62,6 +62,8 @@ type
 
     // Persist the extended (real-correspondence) fields for one telegram.
     procedure SaveBraquiyaExt(ANum: Integer; const E: TBraquiyaExt);
+    // Persist the attachment file name (relative to the Attachments folder).
+    procedure SetAttachment(ANum: Integer; const AFile: string);
 
     procedure OpenBraquiyat(AType, AEtat, AUrgence: string;
                             ADateFrom, ADateTo: TDate;
@@ -166,6 +168,7 @@ begin
   AddCol('COPIE',        'TEXT(200)');   // نسخة إلى
   AddCol('NUM_ARRIVEE',  'TEXT(40)');    // رقم الوارد
   AddCol('DATE_ARRIVEE', 'DATETIME');    // تاريخ الورود
+  AddCol('ATTACHMENT',   'TEXT(255)');   // الملف المرفق (relative name in Attachments\)
   AddCol('SERVICE',      'TEXT(80)');    // المصلحة (routing — also ensured)
 
   FHasExtCols    := ProbeColumn('BRAQUIYA', 'MSG_REF');
@@ -201,6 +204,27 @@ begin
       q.Parameters.ParamByName('g').Value := E.RefPrec;
       q.Parameters.ParamByName('h').Value := E.Copie;
       q.Parameters.ParamByName('i').Value := E.NumArrivee;
+      q.Parameters.ParamByName('n').Value := ANum;
+      q.ExecSQL;
+    except
+      on Ex: Exception do RaiseDataError(Ex);
+    end;
+  finally
+    q.Free;
+  end;
+end;
+
+procedure TDM.SetAttachment(ANum: Integer; const AFile: string);
+var
+  q: TADOQuery;
+begin
+  if not FHasExtCols then Exit;   // ATTACHMENT is added with the ext columns
+  q := TADOQuery.Create(nil);
+  try
+    try
+      q.Connection := Conn;
+      q.SQL.Text := 'UPDATE BRAQUIYA SET ATTACHMENT=:f WHERE NUM_BRQ=:n';
+      q.Parameters.ParamByName('f').Value := AFile;
       q.Parameters.ParamByName('n').Value := ANum;
       q.ExecSQL;
     except
