@@ -259,17 +259,18 @@ begin
   MakePrimaryButton(ButtonRow(body), 'تغيير كلمة المرور', 190, alRight, btnChangePwdClick);
 
   // ── Section 2: appearance ──
+  // A TComboBox keeps its items in the native control, so it must have a
+  // parent (window handle) BEFORE Items are added — parent it via AttachRow first.
+  body := MakeSection('المظهر', 116);
   FCmbStyle := TComboBox.Create(Self);
   FCmbStyle.Style     := csDropDownList;
   FCmbStyle.Font.Name := uTheme.FONT_NAME;
   FCmbStyle.Font.Size := 10;
+  row  := AttachRow(body, 'النمط:', FCmbStyle);
+  MakePrimaryButton(row, 'تطبيق', 100, alLeft, btnApplyStyleClick);
   for I := 0 to High(TStyleManager.StyleNames) do
     FCmbStyle.Items.Add(TStyleManager.StyleNames[I]);
   FCmbStyle.ItemIndex := FCmbStyle.Items.IndexOf(TStyleManager.ActiveStyle.Name);
-
-  body := MakeSection('المظهر', 116);
-  row  := AttachRow(body, 'النمط:', FCmbStyle);
-  MakePrimaryButton(row, 'تطبيق', 100, alLeft, btnApplyStyleClick);
 
   // ── Section 3: database ──
   body := MakeSection('قاعدة البيانات', 146);
