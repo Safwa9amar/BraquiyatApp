@@ -112,7 +112,7 @@ begin
   BiDiMode    := bdRightToLeft;
   BorderStyle := bsDialog;
   Position    := poMainFormCenter;
-  Width       := 560;
+  Width       := 600;
   Height      := 640;
   Color       := CLR_BG;
 
@@ -163,6 +163,10 @@ begin
   btnSave.Caption   := #1581#1601#1592;
   btnPrint.Caption  := #1591#1576#1575#1593#1577;
   btnCancel.Caption := #1573#1604#1594#1575#1569;
+  // Keep the action buttons hugging the (now wider) right edge.
+  btnSave.Left   := btnSave.Left   + 40;
+  btnPrint.Left  := btnPrint.Left  + 40;
+  btnCancel.Left := btnCancel.Left + 40;
 
   LoadJihat;
   LoadServices;
@@ -211,15 +215,21 @@ begin
   sbox.BorderStyle := bsNone;
   sbox.Color       := CLR_BG;
   sbox.ParentColor := False;
+  sbox.BiDiMode    := bdRightToLeft;
+  sbox.HorzScrollBar.Visible := False;   // never scroll sideways / clip labels
   pnlSec1.Parent := sbox;
   pnlSec2.Parent := sbox;
   pnlSec3.Parent := sbox;
+  // Widen the panels so they stop clipping their own right-edge labels.
+  pnlSec1.Width := 564;
+  pnlSec2.Width := 564;
+  pnlSec3.Width := 564;
 
   // New section: all the real-correspondence fields.
   pnlSecExt := TPanel.Create(Self);
   pnlSecExt.Parent     := sbox;
   pnlSecExt.Left       := 8;
-  pnlSecExt.Width      := 544;
+  pnlSecExt.Width      := 564;
   pnlSecExt.Top        := 458;
   pnlSecExt.Height     := 372;
   pnlSecExt.BevelOuter := bvLowered;
