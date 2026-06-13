@@ -170,6 +170,7 @@ begin
   edtUser.StyleElements := edtUser.StyleElements - [seClient, seBorder];
   edtUser.Color         := FieldFill;
   edtUser.Font.Color    := TextMain;
+  edtUser.BiDiMode      := bdRightToLeft;   // caret + text flow right-to-left
 
   // Password field
   pnlPassField.StyleElements    := pnlPassField.StyleElements - [seClient];
@@ -182,6 +183,7 @@ begin
   edtPass.Color         := FieldFill;
   edtPass.Font.Color    := TextMain;
   edtPass.PasswordChar  := #8226;
+  edtPass.BiDiMode      := bdRightToLeft;   // caret + text flow right-to-left
   lblEye.StyleElements  := lblEye.StyleElements - [seFont];
   lblEye.Transparent    := True;
   lblEye.Font.Color     := Muted;

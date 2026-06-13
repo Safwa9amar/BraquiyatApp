@@ -162,7 +162,7 @@ object frmLogin: TfrmLogin
         Top = 188
         Width = 300
         Height = 16
-        Alignment = taRightJustify
+        Alignment = taLeftJustify
         Caption = #1575#1587#1605' '#1575#1604#1605#1587#1578#1582#1583#1605
         Font.Charset = DEFAULT_CHARSET
         Font.Color = 6710886
@@ -176,7 +176,7 @@ object frmLogin: TfrmLogin
         Top = 258
         Width = 300
         Height = 16
-        Alignment = taRightJustify
+        Alignment = taLeftJustify
         Caption = #1603#1604#1605#1577' '#1575#1604#1605#1585#1608#1585
         Font.Charset = DEFAULT_CHARSET
         Font.Color = 6710886
