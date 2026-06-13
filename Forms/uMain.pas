@@ -17,7 +17,7 @@ const
   CLR_SIDEBAR_ACT = $00473416;
   CLR_BORDER      = $00848284;
   CLR_CONTENT     = $00E4EDF0;
-  CLR_SIDE_TEXT   = $00E4CCB8;
+  CLR_SIDE_TEXT   = $00E1D5CB;   // slate-300 — light text on the dark sidebar
   CLR_ACCENT      = $00D8A36F;
 
 type
@@ -187,6 +187,17 @@ var
   Item, Bar:      TPanel;
   IcoLbl, TxtLbl: TLabel;
 begin
+  // Dark sidebar shell (slate) — keeps its identity now the accent is blue
+  pnlSidebar.StyleElements    := pnlSidebar.StyleElements - [seClient];
+  pnlSidebar.ParentBackground := False;
+  pnlSidebar.Color            := uTheme.SIDEBAR_BG;
+  pnlSideHeader.StyleElements    := pnlSideHeader.StyleElements - [seClient];
+  pnlSideHeader.ParentBackground := False;
+  pnlSideHeader.Color            := uTheme.SIDEBAR_DARK;
+  pnlSideStatus.StyleElements    := pnlSideStatus.StyleElements - [seClient];
+  pnlSideStatus.ParentBackground := False;
+  pnlSideStatus.Color            := uTheme.SIDEBAR_BG;
+
   for I := 0 to 6 do
   begin
     // ── Row container ─────────────────────────────────────────────
@@ -199,7 +210,7 @@ begin
     Item.BevelOuter   := bvNone;
     Item.StyleElements    := Item.StyleElements - [seClient];
     Item.ParentBackground := False;
-    Item.Color        := uTheme.AccentHeader;
+    Item.Color        := uTheme.SIDEBAR_BG;
     Item.Tag          := I;
     Item.Cursor       := crHandPoint;
     Item.OnClick      := SideItemClick;
@@ -214,7 +225,7 @@ begin
     Bar.BevelOuter    := bvNone;
     Bar.StyleElements := Bar.StyleElements - [seClient];
     Bar.ParentBackground := False;
-    Bar.Color         := uTheme.AccentHeader;
+    Bar.Color         := uTheme.SIDEBAR_BG;
     Bar.Tag           := I;
     Bar.Cursor        := crHandPoint;
     Bar.OnClick       := SideItemClick;
@@ -240,21 +251,21 @@ begin
     IcoLbl.OnMouseEnter := SideItemEnter;
     IcoLbl.OnMouseLeave := SideItemLeave;
 
-    // ── Caption (fills the rest, right-justified with padding) ────
+    // ── Caption (fills the rest; text pinned LEFT, icon stays at the RIGHT) ──
     TxtLbl            := TLabel.Create(Self);
     TxtLbl.Parent     := Item;
     TxtLbl.Align      := alClient;
     TxtLbl.AlignWithMargins := True;
-    TxtLbl.Margins.SetBounds(10, 0, 10, 0);
+    TxtLbl.Margins.SetBounds(12, 0, 10, 0);
     TxtLbl.Caption    := NAV[I].Caption;
     TxtLbl.StyleElements := TxtLbl.StyleElements - [seFont];
     TxtLbl.Transparent := True;
     TxtLbl.Font.Name  := uTheme.FONT_NAME;
     TxtLbl.Font.Size  := 11;
     TxtLbl.Font.Color := CLR_SIDE_TEXT;
-    // Under bdRightToLeft VCL flips the alignment, so taLeftJustify renders the
-    // Arabic flush to the RIGHT — hugging the icon column (correct RTL layout).
-    TxtLbl.Alignment  := taLeftJustify;
+    // Layout: text at the LEFT, icon at the RIGHT. Under bdRightToLeft VCL flips
+    // the alignment, so taRightJustify renders the caption flush to the LEFT.
+    TxtLbl.Alignment  := taRightJustify;
     TxtLbl.Layout     := tlCenter;
     TxtLbl.BiDiMode   := bdRightToLeft;
     TxtLbl.Tag        := I;
@@ -291,8 +302,8 @@ begin
   Idx := TControl(Sender).Tag;
   if (Idx < 0) or (Idx > 6) or (FSideItems[Idx] = FActiveSideBtn) then Exit;
 
-  FSideItems[Idx].Color     := uTheme.AccentHover;
-  FSideBar[Idx].Color       := uTheme.AccentHover;
+  FSideItems[Idx].Color     := uTheme.SIDEBAR_HOVER;
+  FSideBar[Idx].Color       := uTheme.SIDEBAR_HOVER;
   FSideIcon[Idx].Font.Color := clWhite;
   FSideText[Idx].Font.Color := clWhite;
 end;
@@ -305,8 +316,8 @@ begin
   Idx := TControl(Sender).Tag;
   if (Idx < 0) or (Idx > 6) or (FSideItems[Idx] = FActiveSideBtn) then Exit;
 
-  FSideItems[Idx].Color     := uTheme.AccentHeader;
-  FSideBar[Idx].Color       := uTheme.AccentHeader;
+  FSideItems[Idx].Color     := uTheme.SIDEBAR_BG;
+  FSideBar[Idx].Color       := uTheme.SIDEBAR_BG;
   FSideIcon[Idx].Font.Color := CLR_SIDE_TEXT;
   FSideText[Idx].Font.Color := CLR_SIDE_TEXT;
 end;
@@ -322,8 +333,8 @@ begin
   begin
     if NAV[I].Key = AKey then
     begin
-      FSideItems[I].Color     := uTheme.AccentActive;
-      FSideBar[I].Color       := CLR_ACCENT;        // gold accent strip
+      FSideItems[I].Color     := uTheme.ACCENT_BLUE;   // blue active fill
+      FSideBar[I].Color       := uTheme.ACCENT_LIGHT;  // light-blue edge
       FSideIcon[I].Font.Color := clWhite;
       FSideText[I].Font.Color := clWhite;
       FSideText[I].Font.Style := [fsBold];
@@ -332,8 +343,8 @@ begin
     end
     else
     begin
-      FSideItems[I].Color     := uTheme.AccentHeader;
-      FSideBar[I].Color       := uTheme.AccentHeader;
+      FSideItems[I].Color     := uTheme.SIDEBAR_BG;
+      FSideBar[I].Color       := uTheme.SIDEBAR_BG;
       FSideIcon[I].Font.Color := CLR_SIDE_TEXT;
       FSideText[I].Font.Color := CLR_SIDE_TEXT;
       FSideText[I].Font.Style := [];

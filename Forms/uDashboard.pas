@@ -24,6 +24,7 @@ type
     procedure FormCreate(Sender: TObject);
   private
     FCards:    array[0..3] of TPanel;
+    FChips:    array[0..3] of TPanel;   // colored icon chip per card
     FValLbls:  array[0..3] of TLabel;
     FUrgBody:  TLabel;
     FStatBody: TLabel;
@@ -50,9 +51,9 @@ uses
 
 const
   CLR_PANEL  = $00D8E9EC;
-  CLR_NAVY   = $0064381F;
+  CLR_NAVY   = $00D84E1D;   // primary blue (#1D4ED8) — matches uTheme accent
   CLR_BORDER = $00848284;
-  CLR_BG     = $00C8D0D4;
+  CLR_BG     = $00FAF8F7;   // near-white page background (#F7F8FA)
 
 type
   TCtrlCrack = class(TControl);   // exposes the protected OnResize event
@@ -68,7 +69,7 @@ begin
 
   pnlCards.Color      := CLR_BG;
   pnlCards.BevelOuter := bvNone;
-  pnlCards.Height     := 110;
+  pnlCards.Height     := 150;
   pnlCards.Align      := alTop;
   TCtrlCrack(pnlCards).OnResize := CardsResize;
 
@@ -79,10 +80,14 @@ begin
 end;
 
 procedure TfrmDashboard.CreateStatCards;
-  procedure MakeCard(AIndex: Integer; const ATitle: string; AColor: TColor);
+const
+  ICON_FONT = 'Segoe MDL2 Assets';
+
+  procedure MakeCard(AIndex: Integer; const ATitle, AGlyph: string;
+                     AColor, ATint: TColor);
   var
-    pnl, strip:         TPanel;
-    lTitle, lVal, lSub: TLabel;
+    pnl, band, chip:          TPanel;
+    lTitle, lVal, lSub, lIco: TLabel;
   begin
     pnl              := TPanel.Create(Self);
     pnl.Parent       := pnlCards;
@@ -91,38 +96,60 @@ procedure TfrmDashboard.CreateStatCards;
     pnl.ParentBackground := False;
     pnl.Color        := uTheme.CardSurface;
 
-    // Colour-coded accent strip across the top
-    strip            := TPanel.Create(Self);
-    strip.Parent     := pnl;
-    strip.Align      := alTop;
-    strip.Height     := 4;
-    strip.BevelOuter := bvNone;
-    strip.StyleElements    := strip.StyleElements - [seClient];
-    strip.ParentBackground := False;
-    strip.Color      := AColor;
+    // ── Top band: icon chip (right) + metric title (fills, right-aligned) ──
+    band             := TPanel.Create(Self);
+    band.Parent      := pnl;
+    band.Align       := alTop;
+    band.Height      := 56;
+    band.BevelOuter  := bvNone;
+    band.StyleElements    := band.StyleElements - [seClient];
+    band.ParentBackground := False;
+    band.Color       := uTheme.CardSurface;
 
-    // Metric title — top band, right-aligned (RTL)
+    chip             := TPanel.Create(Self);
+    chip.Parent      := band;
+    chip.Align       := alRight;
+    chip.AlignWithMargins := True;
+    chip.Margins.SetBounds(14, 6, 14, 6);
+    chip.Width       := 44;
+    chip.BevelOuter  := bvNone;
+    chip.StyleElements    := chip.StyleElements - [seClient];
+    chip.ParentBackground := False;
+    chip.Color       := ATint;
+
+    lIco             := TLabel.Create(Self);
+    lIco.Parent      := chip;
+    lIco.Align       := alClient;
+    lIco.Caption     := AGlyph;
+    lIco.Transparent := True;
+    lIco.StyleElements := lIco.StyleElements - [seFont];
+    lIco.Font.Name   := ICON_FONT;
+    lIco.Font.Size   := 16;
+    lIco.Font.Color  := AColor;
+    lIco.Alignment   := taCenter;
+    lIco.Layout      := tlCenter;
+
     lTitle           := TLabel.Create(Self);
-    lTitle.Parent    := pnl;
-    lTitle.Align     := alTop;
+    lTitle.Parent    := band;
+    lTitle.Align     := alClient;
     lTitle.AlignWithMargins := True;
-    lTitle.Margins.SetBounds(12, 10, 12, 0);
+    lTitle.Margins.SetBounds(8, 0, 14, 0);
     lTitle.Caption   := ATitle;
     lTitle.Transparent := True;
     lTitle.StyleElements := lTitle.StyleElements - [seFont];
     lTitle.Font.Name := uTheme.FONT_NAME;
-    lTitle.Font.Size := 9;
+    lTitle.Font.Size := 10;
     lTitle.Font.Color := uTheme.MutedText;
     lTitle.Layout    := tlCenter;
     lTitle.BiDiMode  := bdRightToLeft;
     lTitle.Alignment := taLeftJustify;   // RTL flip -> visual right
 
-    // Date / subtitle — bottom band, right-aligned
+    // ── Date — bottom band, right-aligned ──
     lSub             := TLabel.Create(Self);
     lSub.Parent      := pnl;
     lSub.Align       := alBottom;
     lSub.AlignWithMargins := True;
-    lSub.Margins.SetBounds(12, 0, 12, 8);
+    lSub.Margins.SetBounds(16, 0, 16, 10);
     lSub.Caption     := FormatDateTime('yyyy/mm/dd', Date);
     lSub.Transparent := True;
     lSub.StyleElements := lSub.StyleElements - [seFont];
@@ -133,26 +160,31 @@ procedure TfrmDashboard.CreateStatCards;
     lSub.BiDiMode    := bdRightToLeft;
     lSub.Alignment   := taLeftJustify;
 
-    // The number — fills the middle, centred on both axes
+    // ── Big number — fills the middle, right-aligned (RTL) ──
     lVal             := TLabel.Create(Self);
     lVal.Parent      := pnl;
     lVal.Align       := alClient;
+    lVal.AlignWithMargins := True;
+    lVal.Margins.SetBounds(16, 0, 16, 0);
     lVal.Caption     := '0';
     lVal.Transparent := True;
     lVal.StyleElements := lVal.StyleElements - [seFont];
     lVal.Font.Name   := uTheme.FONT_NAME;
-    lVal.Font.Size   := 30;
+    lVal.Font.Size   := 28;
     lVal.Font.Style  := [fsBold];
-    lVal.Font.Color  := AColor;
-    lVal.Alignment   := taCenter;
+    lVal.Font.Color  := uTheme.TEXT_MAIN;
     lVal.Layout      := tlCenter;
+    lVal.BiDiMode    := bdRightToLeft;
+    lVal.Alignment   := taLeftJustify;   // RTL flip -> visual right
 
     FCards[AIndex]   := pnl;
+    FChips[AIndex]   := chip;
     FValLbls[AIndex] := lVal;
   end;
+
 var
-  Titles: array[0..3] of string;
-  Colors: array[0..3] of TColor;
+  Titles, Glyphs: array[0..3] of string;
+  Colors, Tints:  array[0..3] of TColor;
   I: Integer;
 begin
   Titles[0] := #1575#1604#1576#1585#1602#1610#1575#1578' '#1575#1604#1608#1575#1585#1583#1577' '#1575#1604#1610#1608#1605;
@@ -160,13 +192,18 @@ begin
   Titles[2] := #1602#1610#1583' '#1575#1604#1605#1593#1575#1604#1580#1577;
   Titles[3] := #1573#1580#1605#1575#1604#1610' '#1575#1604#1588#1607#1585;
 
-  Colors[0] := uTheme.AccentHeader;
-  Colors[1] := $00205715;  // green
-  Colors[2] := $00025685;  // amber
-  Colors[3] := $00495057;  // slate
+  Glyphs[0] := #$E896;  // download / incoming
+  Glyphs[1] := #$E898;  // upload / outgoing
+  Glyphs[2] := #$E724;  // routing / in-progress
+  Glyphs[3] := #$E8A5;  // document / total
+
+  Colors[0] := $004444EF;           Tints[0] := $00E2E2FE;  // red
+  Colors[1] := uTheme.ACCENT_BLUE;  Tints[1] := uTheme.ACCENT_LIGHT;  // blue
+  Colors[2] := $000B9EF5;           Tints[2] := $00C7F3FE;  // amber
+  Colors[3] := $0081B910;           Tints[3] := $00E5FAD1;  // green
 
   for I := 0 to 3 do
-    MakeCard(I, Titles[I], Colors[I]);
+    MakeCard(I, Titles[I], Glyphs[I], Colors[I], Tints[I]);
 
   CardsResize(pnlCards);
 end;
@@ -184,18 +221,18 @@ begin
 
   pnlRecentHdr.StyleElements    := pnlRecentHdr.StyleElements - [seClient];
   pnlRecentHdr.ParentBackground := False;
-  pnlRecentHdr.Color      := uTheme.AccentHeader;
+  pnlRecentHdr.Color      := uTheme.CardSurface;   // white section header
   pnlRecentHdr.BevelOuter := bvNone;
-  pnlRecentHdr.Height     := 30;
+  pnlRecentHdr.Height     := 40;
   pnlRecentHdr.Align      := alTop;
 
   lblRecentHdr.Caption    := '   ' + #1570#1582#1585' '#1575#1604#1576#1585#1602#1610#1575#1578' '#1575#1604#1608#1575#1585#1583#1577;
   lblRecentHdr.StyleElements := lblRecentHdr.StyleElements - [seFont];
   lblRecentHdr.Transparent := True;
-  lblRecentHdr.Font.Color := clWhite;
+  lblRecentHdr.Font.Color := uTheme.TEXT_MAIN;     // dark title
   lblRecentHdr.Font.Style := [fsBold];
   lblRecentHdr.Font.Name  := uTheme.FONT_NAME;
-  lblRecentHdr.Font.Size  := 10;
+  lblRecentHdr.Font.Size  := 11;
   lblRecentHdr.Align      := alClient;
   lblRecentHdr.Layout     := tlCenter;
   lblRecentHdr.BiDiMode   := bdRightToLeft;
@@ -248,7 +285,9 @@ begin
     if Assigned(FCards[I]) then
     begin
       FCards[I].SetBounds(X, GAP, CardW, pnlCards.ClientHeight - GAP * 2);
-      uTheme.RoundPanel(FCards[I], 12);
+      uTheme.RoundPanel(FCards[I], 14);
+      if Assigned(FChips[I]) then
+        uTheme.RoundPanel(FChips[I], 12);
     end;
     Dec(X, CardW + GAP);
   end;
@@ -296,23 +335,23 @@ begin
 
   if ARow = 0 then
   begin
-    Bg := uTheme.AccentHeader;
-    Fg := clWhite;
+    if Dark then Bg := $00373330 else Bg := $00FAFAF9;  // light header row
+    Fg := uTheme.MutedText;                             // muted column titles
   end
   else if gdSelected in State then
   begin
-    Bg := uTheme.AccentHover;
-    Fg := clWhite;
+    Bg := uTheme.ACCENT_LIGHT;       // light-blue selection
+    Fg := uTheme.ACCENT_BLUE;
   end
   else
   begin
-    if Dark then Fg := $00DDDDDD else Fg := $00333333;
+    if Dark then Fg := $00DDDDDD else Fg := uTheme.TEXT_MAIN;
     if Odd(ARow) then
       Bg := uTheme.CardSurface
     else if Dark then
       Bg := $00373330
     else
-      Bg := $00F6F2EE;
+      Bg := $00FCFAF8;               // cool very-light alt row
   end;
 
   Cv.Brush.Style := bsSolid;

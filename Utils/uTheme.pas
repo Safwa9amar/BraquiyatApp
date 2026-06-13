@@ -37,11 +37,24 @@ const
   PAD_L = 20;
   CARD_H = 96;
 
-  // Brand accent family (TColor = $00BBGGRR)
-  ACCENT_NAVY       = $0064381F;  // deep navy  RGB(31,56,100)
-  ACCENT_NAVY_LIGHT = $00A07850;  // lighter navy for dark mode RGB(80,120,160)
-  ACCENT_HOVER      = $00824D2A;  // hover      RGB(42,77,130)
-  ACCENT_ACTIVE     = $00473416;  // active     RGB(22,52,71)
+  // Brand accent family — blue (TColor = $00BBGGRR)
+  ACCENT_BLUE       = $00D84E1D;  // primary    #1D4ED8  RGB(29,78,216)
+  ACCENT_BLUE_DARK  = $008A3A1E;  // pressed     #1E3A8A  RGB(30,58,138)
+  ACCENT_LIGHT      = $00FEEADB;  // light pill  #DBEAFE  RGB(219,234,254)
+
+  ACCENT_NAVY       = ACCENT_BLUE;       // legacy name -> primary accent
+  ACCENT_NAVY_LIGHT = $00EB7E40;         // lighter blue for dark mode
+  ACCENT_HOVER      = $00AF401E;         // hover       #1E40AF  RGB(30,64,175)
+  ACCENT_ACTIVE     = ACCENT_BLUE_DARK;  // active
+
+  // Dark sidebar shell + neutrals
+  SIDEBAR_BG    = $003B291E;  // slate-800  #1E293B
+  SIDEBAR_DARK  = $002A170F;  // slate-900  #0F172A
+  SIDEBAR_HOVER = $00554133;  // slate-700  #334155
+  SIDEBAR_TEXT  = $00E1D5CB;  // slate-300  #CBD5E1
+  PAGE_BG       = $00FAF8F7;  // near-white #F7F8FA
+  TEXT_MAIN     = $0037291F;  // slate-800  #1F2937
+  HAIRLINE      = $00EBE7E5;  // border     #E5E7EB
 
   // Status (ETAT) badge colors
   CLR_ST_RECEIVED  = $00B98029;  // blue   RGB(41,128,185)
