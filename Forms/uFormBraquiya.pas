@@ -181,27 +181,51 @@ procedure TfrmFormBraquiya.BuildExtFields;
 var
   sbox: TScrollBox;
   hdr:  TPanel;
+  Y:    Integer;
+  row:  TPanel;
 
-  procedure Lbl(ALeft, ATop: Integer; const ACap: string);
+  // One stacked row inside the section.
+  function NewRow(AHeight: Integer): TPanel;
+  begin
+    Result := TPanel.Create(Self);
+    Result.Parent     := pnlSecExt;
+    Result.SetBounds(6, Y, 552, AHeight);
+    Result.BevelOuter := bvNone;
+    Result.StyleElements    := Result.StyleElements - [seClient];
+    Result.ParentBackground := False;
+    Result.Color      := 16119024;
+    Inc(Y, AHeight + 5);
+  end;
+
+  // Right-pinned, fixed-width label (no AutoSize → no RTL re-anchoring).
+  procedure RowLabel(ARow: TPanel; const ACap: string);
   var L: TLabel;
   begin
     L := TLabel.Create(Self);
-    L.Parent   := pnlSecExt;
-    L.Left     := ALeft;
-    L.Top      := ATop;
-    L.Caption  := ACap;
-    L.Font.Name := 'Tahoma';
-    L.Font.Size := 10;
+    L.Parent     := ARow;
+    L.Align      := alRight;
+    L.AlignWithMargins := True;
+    L.Margins.SetBounds(6, 0, 6, 0);
+    L.AutoSize   := False;
+    L.Width      := 138;
+    L.Layout     := tlCenter;
+    L.Transparent := True;
+    L.Caption    := ACap;
+    L.Font.Name  := 'Tahoma';
+    L.Font.Size  := 10;
   end;
 
-  function Edt(ATop, AWidth: Integer): TEdit;
+  // A labelled row whose input is a full-width TEdit.
+  function RowEdit(const ACap: string): TEdit;
+  var r: TPanel;
   begin
+    r := NewRow(26);
+    RowLabel(r, ACap);
     Result := TEdit.Create(Self);
-    Result.Parent   := pnlSecExt;
-    Result.Left     := 8;
-    Result.Top      := ATop;
-    Result.Width    := AWidth;
-    Result.Height   := 22;
+    Result.Parent   := r;
+    Result.Align    := alClient;
+    Result.AlignWithMargins := True;
+    Result.Margins.SetBounds(4, 1, 4, 1);
     Result.Font.Name := 'Tahoma';
     Result.Font.Size := 10;
     Result.BiDiMode  := bdRightToLeft;
@@ -216,23 +240,22 @@ begin
   sbox.Color       := CLR_BG;
   sbox.ParentColor := False;
   sbox.BiDiMode    := bdRightToLeft;
-  sbox.HorzScrollBar.Visible := False;   // never scroll sideways / clip labels
+  sbox.HorzScrollBar.Visible := False;
   pnlSec1.Parent := sbox;
   pnlSec2.Parent := sbox;
   pnlSec3.Parent := sbox;
-  // Widen the panels so they stop clipping their own right-edge labels.
+  // Widen the existing panels so they stop clipping their own right-edge labels.
   pnlSec1.Width := 564;
   pnlSec2.Width := 564;
   pnlSec3.Width := 564;
 
-  // New section: all the real-correspondence fields.
+  // New section: all the real-correspondence fields, stacked as Align-based rows.
   pnlSecExt := TPanel.Create(Self);
   pnlSecExt.Parent     := sbox;
-  pnlSecExt.Left       := 8;
-  pnlSecExt.Width      := 564;
-  pnlSecExt.Top        := 458;
-  pnlSecExt.Height     := 372;
-  pnlSecExt.BevelOuter := bvLowered;
+  pnlSecExt.SetBounds(8, 458, 564, 400);
+  pnlSecExt.BevelOuter := bvNone;
+  pnlSecExt.StyleElements    := pnlSecExt.StyleElements - [seClient];
+  pnlSecExt.ParentBackground := False;
   pnlSecExt.Color      := 16119024;
 
   hdr := TPanel.Create(Self);
@@ -241,42 +264,41 @@ begin
   StyleSection(hdr, pnlSecExt,
     #1576#1610#1575#1606#1575#1578' '#1575#1604#1605#1585#1575#1587#1604#1577);  // بيانات المراسلة
 
-  Lbl(460,  34, #1585#1602#1605' '#1575#1604#1573#1585#1587#1575#1604':');       // رقم الإرسال
-  edtMsgRef := Edt(32, 444);
-  Lbl(460,  64, #1585#1602#1605' '#1575#1604#1605#1585#1575#1587#1604#1577':');   // رقم المراسلة
-  edtRefNum := Edt(62, 444);
-  Lbl(460,  94, #1575#1604#1608#1602#1578':');                                    // الوقت
-  edtHeure  := Edt(92, 130);
-  Lbl(460, 124, #1575#1604#1605#1585#1587#1604' '#1573#1604#1610#1607':');        // المرسل إليه
-  edtDest   := Edt(122, 444);
-  Lbl(460, 154, #1575#1604#1605#1605#1590#1610':');                               // الممضي
-  edtSign   := Edt(152, 444);
-  Lbl(460, 184, #1580#1607#1577' '#1575#1604#1578#1576#1604#1610#1594':');        // جهة التبليغ
-  edtTabligh := Edt(182, 444);
-  Lbl(460, 214, #1606#1587#1582#1577' '#1573#1604#1609':');                       // نسخة إلى
-  edtCopie  := Edt(212, 444);
-  Lbl(460, 244, #1585#1602#1605' '#1575#1604#1608#1575#1585#1583':');             // رقم الوارد
-  edtNumArr := Edt(242, 130);
-  Lbl(460, 274, #1578#1575#1585#1610#1582' '#1575#1604#1608#1585#1608#1583':');   // تاريخ الورود
+  Y := 30;
+  edtMsgRef  := RowEdit(#1585#1602#1605' '#1575#1604#1573#1585#1587#1575#1604':');           // رقم الإرسال
+  edtRefNum  := RowEdit(#1585#1602#1605' '#1575#1604#1605#1585#1575#1587#1604#1577':');       // رقم المراسلة
+  edtHeure   := RowEdit(#1575#1604#1608#1602#1578':');                                        // الوقت
+  edtDest    := RowEdit(#1575#1604#1605#1585#1587#1604' '#1573#1604#1610#1607':');            // المرسل إليه
+  edtSign    := RowEdit(#1575#1604#1605#1605#1590#1610' / '#1575#1604#1589#1601#1577':');     // الممضي / الصفة
+  edtTabligh := RowEdit(#1580#1607#1577' '#1575#1604#1578#1576#1604#1610#1594':');            // جهة التبليغ
+  edtCopie   := RowEdit(#1606#1587#1582#1577' '#1573#1604#1609':');                           // نسخة إلى
+  edtNumArr  := RowEdit(#1585#1602#1605' '#1575#1604#1608#1575#1585#1583':');                 // رقم الوارد
+
+  row := NewRow(26);
+  RowLabel(row, #1578#1575#1585#1610#1582' '#1575#1604#1608#1585#1608#1583':');               // تاريخ الورود
   dtArrivee := TDateTimePicker.Create(Self);
-  dtArrivee.Parent    := pnlSecExt;
-  dtArrivee.Left      := 8;
-  dtArrivee.Top       := 272;
-  dtArrivee.Width     := 200;
+  dtArrivee.Parent    := row;
+  dtArrivee.Align     := alLeft;
+  dtArrivee.AlignWithMargins := True;
+  dtArrivee.Margins.SetBounds(4, 1, 4, 1);
+  dtArrivee.Width     := 190;
   dtArrivee.Font.Name := 'Tahoma';
   dtArrivee.Font.Size := 10;
   dtArrivee.Date      := Date;
-  Lbl(460, 304, #1575#1604#1605#1585#1580#1593':');                              // المرجع (سابق)
+
+  row := NewRow(58);
+  RowLabel(row, #1575#1604#1605#1585#1580#1593':');                                           // المرجع
   memRefPrec := TMemo.Create(Self);
-  memRefPrec.Parent    := pnlSecExt;
-  memRefPrec.Left      := 8;
-  memRefPrec.Top       := 302;
-  memRefPrec.Width     := 444;
-  memRefPrec.Height    := 56;
+  memRefPrec.Parent    := row;
+  memRefPrec.Align     := alClient;
+  memRefPrec.AlignWithMargins := True;
+  memRefPrec.Margins.SetBounds(4, 2, 4, 2);
   memRefPrec.Font.Name := 'Tahoma';
   memRefPrec.Font.Size := 10;
   memRefPrec.ScrollBars := ssVertical;
   memRefPrec.BiDiMode   := bdRightToLeft;
+
+  pnlSecExt.Height := Y + 8;
 end;
 
 function TfrmFormBraquiya.BuildExt: TBraquiyaExt;
