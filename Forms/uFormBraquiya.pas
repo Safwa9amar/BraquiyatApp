@@ -249,10 +249,16 @@ begin
   pnlSec2.Width := 564;
   pnlSec3.Width := 564;
 
+  // The content section (محتوى البرقية) is no longer used — the telegram text
+  // now lives in the attached file. Hide it and pull the routing / extended
+  // correspondence sections up to close the gap it leaves behind.
+  pnlSec2.Visible := False;
+  pnlSec3.Top     := 184;   // was 322 (right below the removed content section)
+
   // New section: all the real-correspondence fields, stacked as Align-based rows.
   pnlSecExt := TPanel.Create(Self);
   pnlSecExt.Parent     := sbox;
-  pnlSecExt.SetBounds(8, 458, 564, 400);
+  pnlSecExt.SetBounds(8, 320, 564, 400);
   pnlSecExt.BevelOuter := bvNone;
   pnlSecExt.StyleElements    := pnlSecExt.StyleElements - [seClient];
   pnlSecExt.ParentBackground := False;
@@ -468,11 +474,7 @@ begin
     lblFormTitle.Caption := #1573#1590#1575#1601#1577' '#1576#1585#1602#1610#1577' '#1589#1575#1583#1585#1577' '#1580#1583#1610#1583#1577;
 
   pnlSec3.Visible := (AType = 'WARED');
-  if pnlSec3.Visible then pnlSecExt.Top := 458 else pnlSecExt.Top := 322;
-
-  // Start a new telegram with an empty content field (محتوى البرقية) for
-  // both outgoing (SADER) and incoming (WARED).
-  memContenu.Clear;
+  if pnlSec3.Visible then pnlSecExt.Top := 320 else pnlSecExt.Top := 184;
 
   ClearExtFields;
   FAttachPath    := '';
@@ -560,7 +562,7 @@ begin
 
       // Show the routing section only for incoming telegrams.
       pnlSec3.Visible := (FTypeBRQ = TYP_WARED);
-      if pnlSec3.Visible then pnlSecExt.Top := 458 else pnlSecExt.Top := 322;
+      if pnlSec3.Visible then pnlSecExt.Top := 320 else pnlSecExt.Top := 184;
     end;
   finally
     q.Free;
