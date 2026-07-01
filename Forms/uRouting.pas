@@ -99,7 +99,7 @@ begin
   FCmbService.Top       := 8;
   FCmbService.Width     := 220;
   FCmbService.Style     := csDropDownList;
-  uConsts.FillServices(FCmbService.Items);
+  DM.FillServices(FCmbService.Items);   // offices from the DB (MASLAHA)
   FCmbService.ItemIndex := 0;
 
   FFooter := TPanel.Create(Self);

@@ -452,7 +452,7 @@ end;
 
 procedure TfrmFormBraquiya.LoadServices;
 begin
-  uConsts.FillServices(cmbService.Items);   // single source of truth (uConsts)
+  DM.FillServices(cmbService.Items);   // offices from the DB (MASLAHA)
   cmbService.ItemIndex := 0;
 end;
 

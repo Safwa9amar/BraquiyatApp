@@ -46,6 +46,7 @@ type
     FqRecent:       TADOQuery;
     procedure RaiseDataError(E: Exception);
     procedure EnsureBraquiyaColumns;
+    procedure EnsureServicesTable;
     function  ProbeColumn(const ATable, ACol: string): Boolean;
     function  CountQuery(const ASQL: string): Integer; overload;
     function  CountQuery(const ASQL, AParam: string;
@@ -64,6 +65,9 @@ type
     procedure SaveBraquiyaExt(ANum: Integer; const E: TBraquiyaExt);
     // Persist the attachment file name (relative to the Attachments folder).
     procedure SetAttachment(ANum: Integer; const AFile: string);
+    // Load the routing offices (المصالح) from the DB (MASLAHA); falls back to
+    // the built-in list (uConsts.FillServices) if the table isn't reachable.
+    procedure FillServices(AItems: TStrings);
 
     procedure OpenBraquiyat(AType, AEtat, AUrgence: string;
                             ADateFrom, ADateTo: TDate;
@@ -140,6 +144,7 @@ begin
   FHasServiceCol := False;
   FHasExtCols    := False;
   EnsureBraquiyaColumns;   // add any missing real-correspondence columns
+  EnsureServicesTable;     // create + seed the MASLAHA (offices) table
 end;
 
 procedure TDM.EnsureBraquiyaColumns;
@@ -173,6 +178,73 @@ begin
 
   FHasExtCols    := ProbeColumn('BRAQUIYA', 'MSG_REF');
   FHasServiceCol := ProbeColumn('BRAQUIYA', 'SERVICE');
+end;
+
+procedure TDM.EnsureServicesTable;
+var
+  sl: TStringList;
+  q:  TADOQuery;
+  i:  Integer;
+begin
+  // Create the offices table (ignore the error if it already exists).
+  try
+    Conn.Execute('CREATE TABLE MASLAHA ' +
+      '(ID_MASLAHA AUTOINCREMENT PRIMARY KEY, NOM_MASLAHA TEXT(100))');
+  except
+    // already there — fine
+  end;
+  // Seed it with the built-in offices the first time (when empty).
+  try
+    if CountQuery('SELECT COUNT(*) FROM MASLAHA') > 0 then Exit;
+  except
+    Exit;   // table not usable (e.g. read-only DB)
+  end;
+  sl := TStringList.Create;
+  q  := TADOQuery.Create(nil);
+  try
+    uConsts.FillServices(sl);            // built-in list (prompt + 10 offices)
+    q.Connection := Conn;
+    for i := 0 to sl.Count - 1 do
+    begin
+      if (sl[i] = '') or (Copy(sl[i], 1, 2) = '--') then Continue;  // skip prompt
+      q.SQL.Text := 'INSERT INTO MASLAHA (NOM_MASLAHA) VALUES (:n)';
+      q.Parameters.ParamByName('n').Value := sl[i];
+      q.ExecSQL;
+    end;
+  finally
+    q.Free;
+    sl.Free;
+  end;
+end;
+
+procedure TDM.FillServices(AItems: TStrings);
+var
+  q: TADOQuery;
+  n: Integer;
+begin
+  AItems.Clear;
+  n := 0;
+  q := TADOQuery.Create(nil);
+  try
+    try
+      q.Connection := Conn;
+      q.SQL.Text := 'SELECT NOM_MASLAHA FROM MASLAHA ORDER BY ID_MASLAHA';
+      q.Open;
+      AItems.Add('-- ' + #1575#1582#1578#1585' '#1575#1604#1605#1589#1604#1581#1577 + ' --');  // اختر المصلحة
+      while not q.Eof do
+      begin
+        AItems.Add(q.FieldByName('NOM_MASLAHA').AsString);
+        Inc(n);
+        q.Next;
+      end;
+    except
+      n := 0;
+    end;
+  finally
+    q.Free;
+  end;
+  if n = 0 then
+    uConsts.FillServices(AItems);   // fall back to the built-in list
 end;
 
 procedure TDM.SaveBraquiyaExt(ANum: Integer; const E: TBraquiyaExt);
