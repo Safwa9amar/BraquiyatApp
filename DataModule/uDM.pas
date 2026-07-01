@@ -47,6 +47,7 @@ type
     procedure RaiseDataError(E: Exception);
     procedure EnsureBraquiyaColumns;
     procedure EnsureServicesTable;
+    procedure EnsureJihaSeed;
     function  ProbeColumn(const ATable, ACol: string): Boolean;
     function  CountQuery(const ASQL: string): Integer; overload;
     function  CountQuery(const ASQL, AParam: string;
@@ -145,6 +146,7 @@ begin
   FHasExtCols    := False;
   EnsureBraquiyaColumns;   // add any missing real-correspondence columns
   EnsureServicesTable;     // create + seed the MASLAHA (offices) table
+  EnsureJihaSeed;          // add the standard senders (الجهات) if missing
 end;
 
 procedure TDM.EnsureBraquiyaColumns;
@@ -214,6 +216,62 @@ begin
   finally
     q.Free;
     sl.Free;
+  end;
+end;
+
+procedure TDM.EnsureJihaSeed;
+const
+  NAMES: array[0..4] of string = (
+    #1608#1604#1575#1610#1577' '#1575#1604#1576#1610#1590,                            // ولاية البيض
+    #1576#1604#1583#1610#1577' '#1587#1610#1583#1610' '#1591#1610#1601#1608#1585,     // بلدية سيدي طيفور
+    #1576#1604#1583#1610#1577' '#1576#1608#1593#1604#1575#1605,                       // بلدية بوعلام
+    #1576#1604#1583#1610#1577' '#1587#1610#1583#1610' '#1587#1604#1610#1605#1575#1606, // بلدية سيدي سليمان
+    #1576#1604#1583#1610#1577' '#1587#1610#1583#1610' '#1575#1593#1605#1585);          // بلدية سيدي اعمر
+var
+  i, nextId: Integer;
+  exists:    Boolean;
+  q: TADOQuery;
+begin
+  // Next free key — used only if JIHA.ID_JIHA is a required (non-autonumber) key.
+  // AsInteger yields 0 for an empty table (NULL max), so nextId starts at 1.
+  nextId := 1;
+  try
+    nextId := CountQuery('SELECT MAX(ID_JIHA) FROM JIHA') + 1;
+  except
+  end;
+
+  q := TADOQuery.Create(nil);
+  try
+    q.Connection := Conn;
+    for i := 0 to High(NAMES) do
+    try
+      // already there? (literal compare — avoids any param quirks)
+      exists := False;
+      try
+        exists := CountQuery('SELECT COUNT(*) FROM JIHA WHERE NOM_JIHA=' +
+                             QuotedStr(NAMES[i])) > 0;
+      except
+      end;
+      if exists then Continue;
+
+      // Try the simple insert (autonumber ID); if the table needs an explicit
+      // key, fall back to inserting ID_JIHA too.
+      try
+        q.SQL.Text := 'INSERT INTO JIHA (NOM_JIHA) VALUES (:n)';
+        q.Parameters.ParamByName('n').Value := NAMES[i];
+        q.ExecSQL;
+      except
+        q.SQL.Text := 'INSERT INTO JIHA (ID_JIHA, NOM_JIHA) VALUES (:id, :n)';
+        q.Parameters.ParamByName('id').Value := nextId;
+        q.Parameters.ParamByName('n').Value  := NAMES[i];
+        q.ExecSQL;
+        Inc(nextId);
+      end;
+    except
+      // a single failed sender must not stop the others
+    end;
+  finally
+    q.Free;
   end;
 end;
 
