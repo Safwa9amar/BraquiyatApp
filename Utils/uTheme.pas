@@ -280,65 +280,42 @@ procedure DrawBadgeCell(AGrid: TDBGrid; const ARect: TRect; AColumn: TColumn);
 var
   Fn, Txt: string;
   Clr:     TColor;
-  R:       TRect;
   Cv:      TCanvas;
-  cx, cy, tw, dotX: Integer;
+  cx, cy:  Integer;
 begin
   if not Assigned(AColumn.Field) then
     Exit;
   Fn := UpperCase(AColumn.Field.FieldName);
-  Cv := AGrid.Canvas;
-  cy := (ARect.Top + ARect.Bottom) div 2;
 
   if Fn = 'URGENCE' then
   begin
-    // التصنيف — coloured rounded pill with white text
     Txt := UrgencyLabel(AColumn.Field.AsString);
     Clr := UrgenceColor(AColumn.Field.AsString);
-    Cv.Brush.Style := bsSolid;
-    Cv.FillRect(ARect);                 // erase default text, keep the row bg
-    Cv.Font.Name  := FONT_NAME;
-    Cv.Font.Size  := 8;
-    Cv.Font.Style := [fsBold];
-    tw := Cv.TextWidth(Txt) + 22;
-    if tw < 46 then tw := 46;
-    cx := (ARect.Left + ARect.Right) div 2;
-    R.Left := cx - tw div 2;  R.Right  := cx + tw div 2;
-    R.Top  := cy - 9;         R.Bottom := cy + 9;
-    Cv.Brush.Color := Clr;
-    Cv.Pen.Color   := Clr;
-    Cv.RoundRect(R.Left, R.Top, R.Right, R.Bottom, 14, 14);
-    Cv.Brush.Style := bsClear;
-    Cv.Font.Color  := clWhite;
-    SetTextAlign(Cv.Handle, TA_CENTER or TA_TOP);
-    Cv.TextOut(cx, cy - Cv.TextHeight(Txt) div 2, Txt);
-    SetTextAlign(Cv.Handle, TA_LEFT or TA_TOP);
-    Cv.Brush.Style := bsSolid;
   end
   else if Fn = 'ETAT' then
   begin
-    // الحالة — coloured status dot + label
-    Txt  := StateLabel(AColumn.Field.AsString);
-    Clr  := EtatColor(AColumn.Field.AsString);
-    Cv.Brush.Style := bsSolid;
-    Cv.FillRect(ARect);
-    dotX := ARect.Left + 12;
-    Cv.Brush.Color := Clr;
-    Cv.Pen.Color   := Clr;
-    Cv.Ellipse(dotX - 4, cy - 4, dotX + 4, cy + 4);
-    R := ARect;
-    R.Left := dotX + 8;
-    Cv.Brush.Style := bsClear;
-    Cv.Font.Name  := FONT_NAME;
-    Cv.Font.Size  := 9;
-    Cv.Font.Style := [];
-    Cv.Font.Color := TEXT_MAIN;
-    SetTextAlign(Cv.Handle, TA_LEFT or TA_TOP);
-    Cv.TextOut(R.Left, cy - Cv.TextHeight(Txt) div 2, Txt);
-    Cv.Brush.Style := bsSolid;
+    Txt := StateLabel(AColumn.Field.AsString);
+    Clr := EtatColor(AColumn.Field.AsString);
   end
   else
     Exit;  // not a badge column — leave default drawing untouched
+
+  Cv := AGrid.Canvas;
+  cx := (ARect.Left + ARect.Right) div 2;
+  cy := (ARect.Top  + ARect.Bottom) div 2;
+
+  // Text only — coloured label, no chip / no dot.
+  Cv.Brush.Style := bsSolid;
+  Cv.FillRect(ARect);                 // erase the default cell text, keep row bg
+  Cv.Brush.Style := bsClear;
+  Cv.Font.Name   := FONT_NAME;
+  Cv.Font.Size   := 9;
+  Cv.Font.Style  := [fsBold];
+  Cv.Font.Color  := Clr;
+  SetTextAlign(Cv.Handle, TA_CENTER or TA_TOP);
+  Cv.TextOut(cx, cy - Cv.TextHeight(Txt) div 2, Txt);
+  SetTextAlign(Cv.Handle, TA_LEFT or TA_TOP);
+  Cv.Brush.Style := bsSolid;
 end;
 
 end.

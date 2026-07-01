@@ -452,16 +452,7 @@ end;
 
 procedure TfrmFormBraquiya.LoadServices;
 begin
-  cmbService.Clear;
-  cmbService.Items.Add('-- ' + #1575#1582#1578#1585' '#1575#1604#1605#1589#1604#1581#1577' --');
-  cmbService.Items.Add(#1605#1603#1578#1576' '#1575#1604#1608#1575#1604#1610);
-  cmbService.Items.Add(#1605#1589#1604#1581#1577' '#1575#1604#1573#1583#1575#1585#1577' '#1575#1604#1593#1575#1605#1577);
-  cmbService.Items.Add(#1605#1589#1604#1581#1577' '#1575#1604#1578#1593#1604#1610#1605);
-  cmbService.Items.Add(#1605#1589#1604#1581#1577' '#1575#1604#1589#1581#1577);
-  cmbService.Items.Add(#1605#1589#1604#1581#1577' '#1575#1604#1601#1604#1575#1581#1577);
-  cmbService.Items.Add(#1605#1589#1604#1581#1577' '#1575#1604#1605#1575#1604#1610#1577);
-  cmbService.Items.Add(#1605#1589#1604#1581#1577' '#1575#1604#1575#1580#1578#1605#1575#1593#1610#1577);
-  cmbService.Items.Add(#1605#1589#1604#1581#1577' '#1575#1604#1578#1593#1605#1610#1585);
+  uConsts.FillServices(cmbService.Items);   // single source of truth (uConsts)
   cmbService.ItemIndex := 0;
 end;
 
@@ -478,6 +469,10 @@ begin
 
   pnlSec3.Visible := (AType = 'WARED');
   if pnlSec3.Visible then pnlSecExt.Top := 458 else pnlSecExt.Top := 322;
+
+  // Start a new telegram with an empty content field (محتوى البرقية) for
+  // both outgoing (SADER) and incoming (WARED).
+  memContenu.Clear;
 
   ClearExtFields;
   FAttachPath    := '';
