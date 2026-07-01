@@ -272,10 +272,14 @@ begin
 
   Y := 30;
   edtMsgRef  := RowEdit(#1585#1602#1605' '#1575#1604#1573#1585#1587#1575#1604':');           // رقم الإرسال
-  edtRefNum  := RowEdit(#1585#1602#1605' '#1575#1604#1605#1585#1575#1587#1604#1577':');       // رقم المراسلة
+  edtRefNum  := RowEdit(#1585#1602#1605' '#1575#1604#1606#1589':');                           // رقم النص
   edtHeure   := RowEdit(#1575#1604#1608#1602#1578':');                                        // الوقت
   edtDest    := RowEdit(#1575#1604#1605#1585#1587#1604' '#1573#1604#1610#1607':');            // المرسل إليه
-  edtSign    := RowEdit(#1575#1604#1605#1605#1590#1610' / '#1575#1604#1589#1601#1577':');     // الممضي / الصفة
+  // "الإمضاء / الصفة" removed from the form (now part of the attached file); kept
+  // as a hidden field so editing an old record preserves its stored SIGNATAIRE.
+  edtSign := TEdit.Create(Self);
+  edtSign.Parent  := pnlSecExt;
+  edtSign.Visible := False;
   edtTabligh := RowEdit(#1580#1607#1577' '#1575#1604#1578#1576#1604#1610#1594':');            // جهة التبليغ
   edtCopie   := RowEdit(#1606#1587#1582#1577' '#1573#1604#1609':');                           // نسخة إلى
   edtNumArr  := RowEdit(#1585#1602#1605' '#1575#1604#1608#1575#1585#1583':');                 // رقم الوارد
