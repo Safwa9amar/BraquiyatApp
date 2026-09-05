@@ -1,4 +1,4 @@
-﻿unit uFormBraquiya;
+unit uFormBraquiya;
 
 interface
 
@@ -40,7 +40,6 @@ type
     rbAjil:       TRadioButton;
     rbAdi:        TRadioButton;
     rbSirri:      TRadioButton;
-    rbIdari:      TRadioButton;
     // Section 2 — Content
     pnlSec2:      TPanel;
     pnlSec2Hdr:   TPanel;
@@ -73,11 +72,14 @@ type
     FBtnAttach:     TButton;
     FLblAttach:     TLabel;
     // Real-correspondence (extended) fields, created in code (BuildExtFields).
-    edtMsgRef, edtRefNum, edtHeure, edtNumArr,
-    edtDest, edtSign, edtTabligh, edtCopie: TEdit;
+    edtMsgRef, edtRefNum, edtHeure, edtDest, edtCopie, edtNumArr,
+    edtSign: TEdit;
     memRefPrec: TMemo;
     dtArrivee:  TDateTimePicker;
     pnlSecExt:  TPanel;
+    FStoredTabligh: string;
+    FRowMsgRef, FRowRefNum, FRowHeure, FRowDest, FRowCopie,
+    FRowNumArr, FRowDateArr, FRowRefPrec: TPanel;
     procedure LoadJihat;
     procedure LoadServices;
     procedure LoadRecord(ANum: Integer);
@@ -89,6 +91,8 @@ type
     procedure SaveAttachment(ANum: Integer);
     function  AttachFolder: string;
     procedure BuildExtFields;
+    procedure LayoutExtFields;
+    procedure ApplyTypeUI;
     function  BuildExt: TBraquiyaExt;
     procedure ClearExtFields;
   public
@@ -147,7 +151,6 @@ begin
   rbAjil.Caption  := #1593#1575#1580#1604;
   rbAdi.Caption   := #1593#1575#1583#1610;
   rbSirri.Caption := #1587#1585#1610;
-  rbIdari.Caption := #1573#1583#1575#1585#1610;   // إداري
   rbAdi.Checked   := True;
 
   edtNum.ReadOnly := True;
@@ -164,14 +167,18 @@ begin
   btnPrint.Caption  := #1591#1576#1575#1593#1577;
   btnCancel.Caption := #1573#1604#1594#1575#1569;
   // Keep the action buttons hugging the (now wider) right edge.
-  btnSave.Left   := btnSave.Left   + 40;
-  btnPrint.Left  := btnPrint.Left  + 40;
-  btnCancel.Left := btnCancel.Left + 40;
+  if Tag = 0 then
+  begin
+    Tag := 1;
+    btnSave.Left   := btnSave.Left   + 40;
+    btnPrint.Left  := btnPrint.Left  + 40;
+    btnCancel.Left := btnCancel.Left + 40;
+  end;
 
-  LoadJihat;
-  LoadServices;
   BuildExtFields;
+  LoadServices;
   BuildAttachUI;
+  ApplyTypeUI;
 
   btnPrint.OnClick := btnPrintClick;
   uTheme.StyleForm(Self);
@@ -232,6 +239,8 @@ var
   end;
 
 begin
+  if Assigned(pnlSecExt) then Exit;
+
   // Make the field area scrollable so the longer form fits any screen.
   sbox := TScrollBox.Create(Self);
   sbox.Parent      := pnlScroll;
@@ -272,17 +281,28 @@ begin
 
   Y := 30;
   edtMsgRef  := RowEdit(#1585#1602#1605' '#1575#1604#1573#1585#1587#1575#1604':');           // رقم الإرسال
+  FRowMsgRef := edtMsgRef.Parent as TPanel;
+
   edtRefNum  := RowEdit(#1585#1602#1605' '#1575#1604#1606#1589':');                           // رقم النص
-  edtHeure   := RowEdit(#1575#1604#1608#1602#1578':');                                        // الوقت
+  FRowRefNum := edtRefNum.Parent as TPanel;
+
+  edtHeure   := RowEdit(#1608#1602#1578' '#1575#1604#1573#1585#1587#1575#1604':');          // وقت الإرسال
+  FRowHeure  := edtHeure.Parent as TPanel;
+
   edtDest    := RowEdit(#1575#1604#1605#1585#1587#1604' '#1573#1604#1610#1607':');            // المرسل إليه
+  FRowDest   := edtDest.Parent as TPanel;
+
+  edtCopie   := RowEdit(#1606#1587#1582#1577' '#1573#1604#1609':');                           // نسخة إلى
+  FRowCopie  := edtCopie.Parent as TPanel;
+
   // "الإمضاء / الصفة" removed from the form (now part of the attached file); kept
   // as a hidden field so editing an old record preserves its stored SIGNATAIRE.
   edtSign := TEdit.Create(Self);
   edtSign.Parent  := pnlSecExt;
   edtSign.Visible := False;
-  edtTabligh := RowEdit(#1580#1607#1577' '#1575#1604#1578#1576#1604#1610#1594':');            // جهة التبليغ
-  edtCopie   := RowEdit(#1606#1587#1582#1577' '#1573#1604#1609':');                           // نسخة إلى
+
   edtNumArr  := RowEdit(#1585#1602#1605' '#1575#1604#1608#1575#1585#1583':');                 // رقم الوارد
+  FRowNumArr := edtNumArr.Parent as TPanel;
 
   row := NewRow(26);
   RowLabel(row, #1578#1575#1585#1610#1582' '#1575#1604#1608#1585#1608#1583':');               // تاريخ الورود
@@ -295,6 +315,7 @@ begin
   dtArrivee.Font.Name := 'Tahoma';
   dtArrivee.Font.Size := 10;
   dtArrivee.Date      := Date;
+  FRowDateArr := row;
 
   row := NewRow(58);
   RowLabel(row, #1575#1604#1605#1585#1580#1593':');                                           // المرجع
@@ -307,8 +328,76 @@ begin
   memRefPrec.Font.Size := 10;
   memRefPrec.ScrollBars := ssVertical;
   memRefPrec.BiDiMode   := bdRightToLeft;
+  FRowRefPrec := row;
 
-  pnlSecExt.Height := Y + 8;
+  LayoutExtFields;
+end;
+
+procedure TfrmFormBraquiya.LayoutExtFields;
+var
+  CurY: Integer;
+
+  procedure PlaceRow(ARow: TPanel);
+  begin
+    if Assigned(ARow) and ARow.Visible then
+    begin
+      ARow.Top := CurY;
+      Inc(CurY, ARow.Height + 5);
+    end;
+  end;
+
+begin
+  if not Assigned(pnlSecExt) then Exit;
+  CurY := 30;
+  PlaceRow(FRowMsgRef);
+  PlaceRow(FRowRefNum);
+  PlaceRow(FRowHeure);
+  PlaceRow(FRowDest);
+  PlaceRow(FRowCopie);
+  PlaceRow(FRowNumArr);
+  PlaceRow(FRowDateArr);
+  PlaceRow(FRowRefPrec);
+  pnlSecExt.Height := CurY + 8;
+end;
+
+procedure TfrmFormBraquiya.ApplyTypeUI;
+var
+  IsSader: Boolean;
+begin
+  IsSader := (FTypeBRQ = TYP_SADER);
+
+  // 1. Date label caption
+  if IsSader then
+    lblDate.Caption := #1578#1575#1585#1610#1582' '#1575#1604#1573#1585#1587#1575#1604':'    // تاريخ الإرسال:
+  else
+    lblDate.Caption := #1578#1575#1585#1610#1582' '#1575#1604#1575#1587#1578#1604#1575#1605':';   // تاريخ الاستلام:
+
+  // 2. Routing section (only for incoming / WARED)
+  pnlSec3.Visible := not IsSader;
+  if Assigned(pnlSecExt) then
+  begin
+    if pnlSec3.Visible then
+      pnlSecExt.Top := 320
+    else
+      pnlSecExt.Top := 184;
+  end;
+
+  // 3. Outgoing fields: "المرسل إليه" and "نسخة إلى" are shown for SADER
+  if Assigned(FRowDest) then
+    FRowDest.Visible := IsSader;
+  if Assigned(FRowCopie) then
+    FRowCopie.Visible := IsSader;
+
+  // 4. Incoming fields: "رقم الوارد" and "تاريخ الورود" are shown for WARED
+  if Assigned(FRowNumArr) then
+    FRowNumArr.Visible := not IsSader;
+  if Assigned(FRowDateArr) then
+    FRowDateArr.Visible := not IsSader;
+
+  LayoutExtFields;
+
+  // 5. Sender list (strictly 'دائرة بوعلام' for SADER)
+  LoadJihat;
 end;
 
 function TfrmFormBraquiya.BuildExt: TBraquiyaExt;
@@ -316,21 +405,37 @@ begin
   Result.MsgRef       := Trim(edtMsgRef.Text);
   Result.RefNum       := Trim(edtRefNum.Text);
   Result.Heure        := Trim(edtHeure.Text);
-  Result.Destinataire := Trim(edtDest.Text);
   Result.Signataire   := Trim(edtSign.Text);
-  Result.Tabligh      := Trim(edtTabligh.Text);
+  Result.Tabligh      := FStoredTabligh;
   Result.RefPrec      := Trim(memRefPrec.Text);
-  Result.Copie        := Trim(edtCopie.Text);
-  Result.NumArrivee   := Trim(edtNumArr.Text);
-  Result.DateArrivee  := dtArrivee.Date;
+  if FTypeBRQ = TYP_SADER then
+  begin
+    Result.Destinataire := Trim(edtDest.Text);
+    Result.Copie        := Trim(edtCopie.Text);
+    Result.NumArrivee   := '';
+    Result.DateArrivee  := 0;
+  end
+  else
+  begin
+    Result.Destinataire := '';
+    Result.Copie        := '';
+    Result.NumArrivee   := Trim(edtNumArr.Text);
+    Result.DateArrivee  := dtArrivee.Date;
+  end;
 end;
 
 procedure TfrmFormBraquiya.ClearExtFields;
 begin
-  edtMsgRef.Text  := '';  edtRefNum.Text  := '';  edtHeure.Text := '';
-  edtDest.Text    := '';  edtSign.Text    := '';  edtTabligh.Text := '';
-  edtCopie.Text   := '';  edtNumArr.Text  := '';  memRefPrec.Text := '';
-  dtArrivee.Date  := Date;
+  if Assigned(edtMsgRef)  then edtMsgRef.Text  := '';
+  if Assigned(edtRefNum)  then edtRefNum.Text  := '';
+  if Assigned(edtHeure)   then edtHeure.Text   := '';
+  if Assigned(edtDest)    then edtDest.Text    := '';
+  if Assigned(edtCopie)   then edtCopie.Text   := '';
+  if Assigned(edtSign)    then edtSign.Text    := '';
+  if Assigned(edtNumArr)  then edtNumArr.Text  := '';
+  if Assigned(memRefPrec) then memRefPrec.Text := '';
+  FStoredTabligh := '';
+  if Assigned(dtArrivee)  then dtArrivee.Date  := Date;
 end;
 
 function TfrmFormBraquiya.AttachFolder: string;
@@ -340,6 +445,7 @@ end;
 
 procedure TfrmFormBraquiya.BuildAttachUI;
 begin
+  if Assigned(FBtnAttach) then Exit;
   // Lives in the free (right) part of the footer band.
   FBtnAttach := TButton.Create(Self);
   FBtnAttach.Parent  := pnlFooter;
@@ -439,25 +545,71 @@ end;
 procedure TfrmFormBraquiya.LoadJihat;
 var
   q: TADOQuery;
+  DairaName: string;
+  DairaId: Integer;
 begin
+  DairaName := #1583#1575#1574#1585#1577' '#1576#1608#1593#1604#1575#1605; // دائرة بوعلام
   cmbJiha.Clear;
-  cmbJiha.Items.Add('-- ' + #1575#1582#1578#1585' '#1575#1604#1580#1607#1577' --');
-  q := TADOQuery.Create(nil);
-  try
-    q.Connection := DM.Conn;
-    q.SQL.Text   := 'SELECT ID_JIHA, NOM_JIHA FROM JIHA ORDER BY NOM_JIHA';
-    q.Open;
-    while not q.Eof do
-    begin
-      cmbJiha.Items.AddObject(
-        q.FieldByName('NOM_JIHA').AsString,
-        TObject(q.FieldByName('ID_JIHA').AsInteger));
-      q.Next;
+
+  if FTypeBRQ = TYP_SADER then
+  begin
+    DairaId := -1;
+    q := TADOQuery.Create(nil);
+    try
+      q.Connection := DM.Conn;
+      q.SQL.Text   := 'SELECT ID_JIHA FROM JIHA WHERE NOM_JIHA = :n';
+      q.Parameters.ParamByName('n').Value := DairaName;
+      q.Open;
+      if not q.IsEmpty then
+        DairaId := q.FieldByName('ID_JIHA').AsInteger;
+    finally
+      q.Free;
     end;
-  finally
-    q.Free;
+
+    if DairaId <= 0 then
+    begin
+      try
+        DM.EnsureJihaSeed;
+        q := TADOQuery.Create(nil);
+        try
+          q.Connection := DM.Conn;
+          q.SQL.Text   := 'SELECT ID_JIHA FROM JIHA WHERE NOM_JIHA = :n';
+          q.Parameters.ParamByName('n').Value := DairaName;
+          q.Open;
+          if not q.IsEmpty then
+            DairaId := q.FieldByName('ID_JIHA').AsInteger;
+        finally
+          q.Free;
+        end;
+      except
+      end;
+    end;
+
+    if DairaId <= 0 then DairaId := 1;
+
+    cmbJiha.Items.AddObject(DairaName, TObject(DairaId));
+    cmbJiha.ItemIndex := 0;
+  end
+  else
+  begin
+    cmbJiha.Items.Add('-- ' + #1575#1582#1578#1585' '#1575#1604#1580#1607#1577' --');
+    q := TADOQuery.Create(nil);
+    try
+      q.Connection := DM.Conn;
+      q.SQL.Text   := 'SELECT ID_JIHA, NOM_JIHA FROM JIHA ORDER BY NOM_JIHA';
+      q.Open;
+      while not q.Eof do
+      begin
+        cmbJiha.Items.AddObject(
+          q.FieldByName('NOM_JIHA').AsString,
+          TObject(q.FieldByName('ID_JIHA').AsInteger));
+        q.Next;
+      end;
+    finally
+      q.Free;
+    end;
+    cmbJiha.ItemIndex := 0;
   end;
-  cmbJiha.ItemIndex := 0;
 end;
 
 procedure TfrmFormBraquiya.LoadServices;
@@ -477,8 +629,8 @@ begin
   else
     lblFormTitle.Caption := #1573#1590#1575#1601#1577' '#1576#1585#1602#1610#1577' '#1589#1575#1583#1585#1577' '#1580#1583#1610#1583#1577;
 
-  pnlSec3.Visible := (AType = 'WARED');
-  if pnlSec3.Visible then pnlSecExt.Top := 320 else pnlSecExt.Top := 184;
+  BuildExtFields;
+  ApplyTypeUI;
 
   ClearExtFields;
   FAttachPath    := '';
@@ -515,23 +667,34 @@ begin
       memRem.Text     := q.FieldByName('REMARQUES').AsString;
       FTypeBRQ        := q.FieldByName('TYPE_BRQ').AsString;
 
+      BuildExtFields;
+      ApplyTypeUI;
+
       case AnsiIndexStr(q.FieldByName('URGENCE').AsString,
-                        [URG_AJIL, URG_ADI, URG_SIRRI, URG_IDARI]) of
+                        [URG_AJIL, URG_ADI, URG_SIRRI]) of
         0: rbAjil.Checked  := True;
         1: rbAdi.Checked   := True;
         2: rbSirri.Checked := True;
-        3: rbIdari.Checked := True;
+      else
+        rbAdi.Checked := True;
       end;
 
-      // Restore the sender (Jiha) selection — without this, editing fails
-      // validation because no Jiha appears selected.
-      for I := 1 to cmbJiha.Items.Count - 1 do
-        if Integer(cmbJiha.Items.Objects[I]) =
-           q.FieldByName('ID_JIHA').AsInteger then
-        begin
-          cmbJiha.ItemIndex := I;
-          Break;
-        end;
+      // Restore the sender (Jiha) selection
+      if FTypeBRQ = TYP_SADER then
+      begin
+        if cmbJiha.Items.Count > 0 then
+          cmbJiha.ItemIndex := 0;
+      end
+      else
+      begin
+        for I := 1 to cmbJiha.Items.Count - 1 do
+          if Integer(cmbJiha.Items.Objects[I]) =
+             q.FieldByName('ID_JIHA').AsInteger then
+          begin
+            cmbJiha.ItemIndex := I;
+            Break;
+          end;
+      end;
 
       // Restore the routed service if that column exists in the database.
       if Assigned(q.FindField('SERVICE')) and
@@ -546,11 +709,11 @@ begin
       if Assigned(q.FindField('MSG_REF'))      then edtMsgRef.Text  := q.FieldByName('MSG_REF').AsString;
       if Assigned(q.FindField('REF_NUM'))      then edtRefNum.Text  := q.FieldByName('REF_NUM').AsString;
       if Assigned(q.FindField('HEURE'))        then edtHeure.Text   := q.FieldByName('HEURE').AsString;
-      if Assigned(q.FindField('DESTINATAIRE')) then edtDest.Text    := q.FieldByName('DESTINATAIRE').AsString;
+      if Assigned(q.FindField('DESTINATAIRE')) and Assigned(edtDest)  then edtDest.Text    := q.FieldByName('DESTINATAIRE').AsString;
       if Assigned(q.FindField('SIGNATAIRE'))   then edtSign.Text    := q.FieldByName('SIGNATAIRE').AsString;
-      if Assigned(q.FindField('TABLIGH'))      then edtTabligh.Text := q.FieldByName('TABLIGH').AsString;
+      if Assigned(q.FindField('TABLIGH'))      then FStoredTabligh  := q.FieldByName('TABLIGH').AsString;
       if Assigned(q.FindField('REF_PREC'))     then memRefPrec.Text := q.FieldByName('REF_PREC').AsString;
-      if Assigned(q.FindField('COPIE'))        then edtCopie.Text   := q.FieldByName('COPIE').AsString;
+      if Assigned(q.FindField('COPIE')) and Assigned(edtCopie)        then edtCopie.Text   := q.FieldByName('COPIE').AsString;
       if Assigned(q.FindField('NUM_ARRIVEE'))  then edtNumArr.Text  := q.FieldByName('NUM_ARRIVEE').AsString;
       if Assigned(q.FindField('DATE_ARRIVEE')) and
          not q.FieldByName('DATE_ARRIVEE').IsNull then
@@ -582,7 +745,7 @@ begin
     edtObjet.SetFocus;
     Exit;
   end;
-  if cmbJiha.ItemIndex <= 0 then
+  if (cmbJiha.ItemIndex < 0) or (Integer(cmbJiha.Items.Objects[cmbJiha.ItemIndex]) <= 0) then
   begin
     ShowMessage(#1575#1604#1585#1580#1575#1569' '#1575#1582#1578#1610#1575#1585' '#1575#1604#1580#1607#1577);
     cmbJiha.SetFocus;
@@ -600,7 +763,6 @@ begin
 
   if rbAjil.Checked       then Urg := URG_AJIL
   else if rbSirri.Checked then Urg := URG_SIRRI
-  else if rbIdari.Checked then Urg := URG_IDARI
   else                         Urg := URG_ADI;
 
   JihaID := Integer(cmbJiha.Items.Objects[cmbJiha.ItemIndex]);
@@ -667,8 +829,12 @@ begin
     SL.Add('<h2>' + lblFormTitle.Caption + '</h2><table>');
     SL.Add('<tr><td class="k">' + HeaderLabel('NUM_BRQ') + '</td><td>' +
            edtNum.Text + '</td></tr>');
-    SL.Add('<tr><td class="k">' + HeaderLabel('DATE_REC') + '</td><td>' +
-           FormatDateTime('yyyy/mm/dd', dtDate.Date) + '</td></tr>');
+    if FTypeBRQ = TYP_SADER then
+      SL.Add('<tr><td class="k">' + #1578#1575#1585#1610#1582' '#1575#1604#1573#1585#1587#1575#1604 + '</td><td>' +
+             FormatDateTime('yyyy/mm/dd', dtDate.Date) + '</td></tr>')
+    else
+      SL.Add('<tr><td class="k">' + #1578#1575#1585#1610#1582' '#1575#1604#1575#1587#1578#1604#1575#1605 + '</td><td>' +
+             FormatDateTime('yyyy/mm/dd', dtDate.Date) + '</td></tr>');
     SL.Add('<tr><td class="k">' + HeaderLabel('NOM_JIHA') + '</td><td>' +
            cmbJiha.Text + '</td></tr>');
     SL.Add('<tr><td class="k">' + HeaderLabel('OBJET') + '</td><td>' +
@@ -680,12 +846,16 @@ begin
     Row('MSG_REF',      edtMsgRef.Text);
     Row('REF_NUM',      edtRefNum.Text);
     Row('HEURE',        edtHeure.Text);
-    Row('DESTINATAIRE', edtDest.Text);
+    if FTypeBRQ = TYP_SADER then
+    begin
+      Row('DESTINATAIRE', edtDest.Text);
+      Row('COPIE',        edtCopie.Text);
+    end;
     Row('SIGNATAIRE',   edtSign.Text);
-    Row('TABLIGH',      edtTabligh.Text);
+    Row('TABLIGH',      FStoredTabligh);
     Row('REF_PREC',     memRefPrec.Text);
-    Row('COPIE',        edtCopie.Text);
-    Row('NUM_ARRIVEE',  edtNumArr.Text);
+    if FTypeBRQ <> TYP_SADER then
+      Row('NUM_ARRIVEE',  edtNumArr.Text);
     Row('ATTACHMENT',   ExtractFileName(FAttachPath));
     SL.Add('</table></body></html>');
     F := TPath.Combine(TPath.GetTempPath, 'braquiya_print.html');

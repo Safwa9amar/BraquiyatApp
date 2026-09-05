@@ -1,9 +1,9 @@
-﻿unit uDM;
+unit uDM;
 
 interface
 
 uses
-  System.SysUtils, System.Classes,
+  System.SysUtils, System.Classes, System.IniFiles,
   Data.DB, Data.Win.ADODB,
   uConsts;
 
@@ -43,12 +43,16 @@ type
     FCurrentName:   string;
     FHasServiceCol: Boolean;
     FHasExtCols:    Boolean;
+    FDBPath:        string;
+    FDBProvider:    string;
     FqRecent:       TADOQuery;
+    function  ResolveDBPath: string;
+    function  ConnectToDatabase: Boolean;
     procedure RaiseDataError(E: Exception);
     procedure EnsureBraquiyaColumns;
     procedure EnsureServicesTable;
-    procedure EnsureJihaSeed;
-    function  ProbeColumn(const ATable, ACol: string): Boolean;
+    function  ProbeColumn(const ATable, ACol: string): Boolean; overload;
+    function  ProbeColumn(const ATable, ACol: string; out AError: string): Boolean; overload;
     function  CountQuery(const ASQL: string): Integer; overload;
     function  CountQuery(const ASQL, AParam: string;
                          const AValue: Variant): Integer; overload;
@@ -59,8 +63,14 @@ type
     property CurrentName:      string  read FCurrentName;
     property HasServiceColumn: Boolean read FHasServiceCol;
     property HasExtColumns:    Boolean read FHasExtCols;
+    property DBPath:           string  read FDBPath;
+    property DBProvider:       string  read FDBProvider;
 
+    function  SetDatabasePath(const APath: string): Boolean;
     function  Login(AUser, APass: string): Boolean;
+
+    // Seed default entities if not present
+    procedure EnsureJihaSeed;
 
     // Persist the extended (real-correspondence) fields for one telegram.
     procedure SaveBraquiyaExt(ANum: Integer; const E: TBraquiyaExt);
@@ -115,32 +125,245 @@ implementation
 
 function ACEDateLit(const D: TDateTime): string; forward;
 
-procedure TDM.DataModuleCreate(Sender: TObject);
+function TDM.ResolveDBPath: string;
 var
-  DBPath: string;
+  Ini: TIniFile;
+  ConfigPath, AppDir, Candidate: string;
+  Names: array[0..1] of string;
+  I: Integer;
 begin
-  DBPath := ExtractFilePath(ParamStr(0)) + 'Braquiyat.accdb';
-  Conn.ConnectionString :=
-    'Provider=Microsoft.ACE.OLEDB.12.0;' +
-    'Data Source=' + DBPath + ';' +
-    'Persist Security Info=False;';
-  Conn.LoginPrompt := False;
-  // Client-side cursor → reliable RecordCount and random navigation.
-  Conn.CursorLocation := clUseClient;
+  AppDir := ExtractFilePath(ParamStr(0));
+  ConfigPath := '';
+
+  // 1. Check INI file
+  if FileExists(ChangeFileExt(ParamStr(0), '.ini')) then
+  begin
+    Ini := TIniFile.Create(ChangeFileExt(ParamStr(0), '.ini'));
+    try
+      ConfigPath := Trim(Ini.ReadString('Database', 'Path', ''));
+    finally
+      Ini.Free;
+    end;
+  end;
+
+  if (ConfigPath <> '') and FileExists(ConfigPath) then
+    Exit(ExpandFileName(ConfigPath));
+
+  // Check both Braquiyat.mdb (Jet 4.0 native) and Braquiyat.accdb (ACE OLEDB)
+  Names[0] := 'Braquiyat.mdb';
+  Names[1] := 'Braquiyat.accdb';
+
+  for I := 0 to 1 do
+  begin
+    Candidate := AppDir + Names[I];
+    if FileExists(Candidate) then Exit(ExpandFileName(Candidate));
+
+    Candidate := AppDir + '..\' + Names[I];
+    if FileExists(Candidate) then Exit(ExpandFileName(Candidate));
+
+    Candidate := AppDir + '..\..\' + Names[I];
+    if FileExists(Candidate) then Exit(ExpandFileName(Candidate));
+
+    Candidate := GetCurrentDir + PathDelim + Names[I];
+    if FileExists(Candidate) then Exit(ExpandFileName(Candidate));
+  end;
+
+  if ConfigPath <> '' then
+    Result := ConfigPath
+  else if FileExists(AppDir + 'Braquiyat.mdb') then
+    Result := AppDir + 'Braquiyat.mdb'
+  else
+    Result := AppDir + 'Braquiyat.accdb';
+end;
+
+function TDM.ConnectToDatabase: Boolean;
+var
+  Providers: array of string;
+  P, IniProvider, Err, AllErrors, AltMdbPath: string;
+  I: Integer;
+  Ini: TIniFile;
+  ConnectedOk: Boolean;
+
+  function TryOne(const AProvider, APath: string; out AErrorMsg: string): Boolean;
+  begin
+    Result := False;
+    AErrorMsg := '';
+    try
+      Conn.Connected := False;
+      Conn.ConnectionString :=
+        'Provider=' + AProvider + ';' +
+        'Data Source=' + APath + ';' +
+        'Mode=Share Deny None;' +
+        'Persist Security Info=False;';
+      Conn.LoginPrompt := False;
+      Conn.CursorLocation := clUseClient;
+      Conn.Connected := True;
+      Result := True;
+    except
+      on E: Exception do
+      begin
+        Conn.Connected := False;
+        AErrorMsg := E.Message;
+      end;
+    end;
+  end;
+
+begin
+  Result := False;
+  if FDBPath = '' then
+    FDBPath := ResolveDBPath;
+
+  if not FileExists(FDBPath) then
+  begin
+    raise Exception.Create(
+      'لم يتم العثور على ملف قاعدة البيانات!' + sLineBreak +
+      'المسار المتوقع: ' + FDBPath + sLineBreak + sLineBreak +
+      'يرجى التأكد من وجود ملف Braquiyat.accdb أو Braquiyat.mdb بجانب البرنامج.');
+  end;
+
+  // Read preferred provider from INI if present
+  IniProvider := '';
+  if FileExists(ChangeFileExt(ParamStr(0), '.ini')) then
+  begin
+    Ini := TIniFile.Create(ChangeFileExt(ParamStr(0), '.ini'));
+    try
+      IniProvider := Trim(Ini.ReadString('Database', 'Provider', ''));
+    finally
+      Ini.Free;
+    end;
+  end;
+
+  ConnectedOk := False;
+  AllErrors := '';
+
+  // If this is a .mdb file, Microsoft.Jet.OLEDB.4.0 is native in all Windows versions!
+  if SameText(ExtractFileExt(FDBPath), '.mdb') then
+  begin
+    if TryOne('Microsoft.Jet.OLEDB.4.0', FDBPath, Err) then
+    begin
+      FDBProvider := 'Microsoft.Jet.OLEDB.4.0';
+      ConnectedOk := True;
+    end
+    else
+      AllErrors := AllErrors + sLineBreak + '• [Microsoft.Jet.OLEDB.4.0]: ' + Err;
+  end
+  else
+  begin
+    // For .accdb: Try configured provider or standard ACE OLEDB providers
+    SetLength(Providers, 0);
+    if IniProvider <> '' then
+    begin
+      SetLength(Providers, Length(Providers) + 1);
+      Providers[High(Providers)] := IniProvider;
+    end;
+    if (IniProvider <> 'Microsoft.ACE.OLEDB.12.0') then
+    begin
+      SetLength(Providers, Length(Providers) + 1);
+      Providers[High(Providers)] := 'Microsoft.ACE.OLEDB.12.0';
+    end;
+    if (IniProvider <> 'Microsoft.ACE.OLEDB.16.0') then
+    begin
+      SetLength(Providers, Length(Providers) + 1);
+      Providers[High(Providers)] := 'Microsoft.ACE.OLEDB.16.0';
+    end;
+    if (IniProvider <> 'Microsoft.ACE.OLEDB.15.0') then
+    begin
+      SetLength(Providers, Length(Providers) + 1);
+      Providers[High(Providers)] := 'Microsoft.ACE.OLEDB.15.0';
+    end;
+
+    for I := 0 to High(Providers) do
+    begin
+      P := Providers[I];
+      if TryOne(P, FDBPath, Err) then
+      begin
+        FDBProvider := P;
+        ConnectedOk := True;
+        Break;
+      end
+      else
+        AllErrors := AllErrors + sLineBreak + '• [' + P + ']: ' + Err;
+    end;
+
+    // Fallback: If .accdb failed because ACE is missing, check if .mdb exists in the same folder!
+    if not ConnectedOk then
+    begin
+      AltMdbPath := ChangeFileExt(FDBPath, '.mdb');
+      if FileExists(AltMdbPath) then
+      begin
+        if TryOne('Microsoft.Jet.OLEDB.4.0', AltMdbPath, Err) then
+        begin
+          FDBPath := AltMdbPath;
+          FDBProvider := 'Microsoft.Jet.OLEDB.4.0';
+          ConnectedOk := True;
+        end;
+      end;
+    end;
+  end;
+
+  if not ConnectedOk then
+  begin
+    raise Exception.Create(
+      'فشل الاتصال بقاعدة البيانات على هذا الجهاز!' + sLineBreak +
+      'مسار الملف: ' + FDBPath + sLineBreak + sLineBreak +
+      'الأسباب والحلول:' + sLineBreak +
+      '1. في Win32: تثبيت Microsoft Access Database Engine 2016 (نسخة 32-bit).' + sLineBreak +
+      '2. أو تحويل قاعدة البيانات إلى صيغة Access 2002-2003 (*.mdb) لتعمل تلقائياً بدون أي مشغل إضافي عبر Microsoft.Jet.OLEDB.4.0.' + sLineBreak +
+      'تفاصيل الأخطاء:' + AllErrors);
+  end;
+
+  Result := True;
+end;
+
+function TDM.SetDatabasePath(const APath: string): Boolean;
+var
+  Ini: TIniFile;
+  OldPath: string;
+begin
+  Result := False;
+  if not FileExists(APath) then
+    raise Exception.Create('ملف قاعدة البيانات غير موجود: ' + APath);
+
+  OldPath := FDBPath;
+  FDBPath := APath;
   try
-    Conn.Connected := True;
+    ConnectToDatabase;
+    EnsureBraquiyaColumns;
+    EnsureServicesTable;
+    EnsureJihaSeed;
+    Ini := TIniFile.Create(ChangeFileExt(ParamStr(0), '.ini'));
+    try
+      Ini.WriteString('Database', 'Path', FDBPath);
+      Ini.WriteString('Database', 'Provider', FDBProvider);
+    finally
+      Ini.Free;
+    end;
+    Result := True;
   except
     on E: Exception do
-      raise Exception.Create('خطأ في الاتصال بقاعدة البيانات: ' + E.Message);
+    begin
+      FDBPath := OldPath;
+      if OldPath <> '' then
+        ConnectToDatabase;
+      raise;
+    end;
   end;
+end;
+
+procedure TDM.DataModuleCreate(Sender: TObject);
+begin
+  ConnectToDatabase;
 
   qBraquiya.CursorLocation := clUseClient;
   qBraquiya.CursorType     := ctStatic;
 
-  FqRecent := TADOQuery.Create(Self);
-  FqRecent.Connection     := Conn;
-  FqRecent.CursorLocation := clUseClient;
-  FqRecent.CursorType     := ctStatic;
+  if not Assigned(FqRecent) then
+  begin
+    FqRecent := TADOQuery.Create(Self);
+    FqRecent.Connection     := Conn;
+    FqRecent.CursorLocation := clUseClient;
+    FqRecent.CursorType     := ctStatic;
+  end;
 
   FHasServiceCol := False;
   FHasExtCols    := False;
@@ -221,18 +444,34 @@ end;
 
 procedure TDM.EnsureJihaSeed;
 const
-  NAMES: array[0..5] of string = (
+  NAMES: array[0..7] of string = (
+    #1583#1575#1574#1585#1577' '#1576#1608#1593#1604#1575#1605,                       // دائرة بوعلام
     #1608#1604#1575#1610#1577' '#1575#1604#1576#1610#1590,                            // ولاية البيض
     #1576#1604#1583#1610#1577' '#1587#1610#1583#1610' '#1591#1610#1601#1608#1585,     // بلدية سيدي طيفور
     #1576#1604#1583#1610#1577' '#1576#1608#1593#1604#1575#1605,                       // بلدية بوعلام
     #1576#1604#1583#1610#1577' '#1587#1610#1583#1610' '#1587#1604#1610#1605#1575#1606, // بلدية سيدي سليمان
     #1576#1604#1583#1610#1577' '#1587#1610#1583#1610' '#1575#1593#1605#1585,           // بلدية سيدي اعمر
-    #1587#1578#1610#1578#1606);                                                       // ستيتن
+    #1587#1578#1610#1578#1606,                                                       // ستيتن
+    #1605#1583#1610#1585#1610#1575#1578' '#1571#1582#1585#1609);                     // مديريات أخرى
 var
   i, nextId: Integer;
   exists:    Boolean;
   q: TADOQuery;
 begin
+  // Rename legacy 'test' entry if present to 'مديريات أخرى'
+  try
+    q := TADOQuery.Create(nil);
+    try
+      q.Connection := Conn;
+      q.SQL.Text := 'UPDATE JIHA SET NOM_JIHA = :n WHERE NOM_JIHA = ''test'' OR NOM_JIHA = ''TEST'' OR LCase(NOM_JIHA) = ''test''';
+      q.Parameters.ParamByName('n').Value := #1605#1583#1610#1585#1610#1575#1578' '#1571#1582#1585#1609;
+      q.ExecSQL;
+    finally
+      q.Free;
+    end;
+  except
+  end;
+
   // Next free key — used only if JIHA.ID_JIHA is a required (non-autonumber) key.
   // AsInteger yields 0 for an empty table (NULL max), so nextId starts at 1.
   nextId := 1;
@@ -428,10 +667,16 @@ begin
     if AEtat    <> '' then SQL := SQL + 'AND B.ETAT = :et ';
     if AUrgence <> '' then SQL := SQL + 'AND B.URGENCE = :ur ';
     // ADO maps each :name to a positional "?"; a name reused in one statement
-    // must use distinct parameters, so the search uses :s1/:s2/:s3.
-    if ASearch  <> '' then
-      SQL := SQL +
-        'AND (B.OBJET LIKE :s1 OR B.CONTENU LIKE :s2 OR J.NOM_JIHA LIKE :s3) ';
+    // must use distinct parameters, so the search uses :s1/:s2/:s3 (and :nbr if numeric).
+    if ASearch <> '' then
+    begin
+      if StrToIntDef(Trim(ASearch), 0) > 0 then
+        SQL := SQL +
+          'AND (B.NUM_BRQ = :nbr OR B.OBJET LIKE :s1 OR B.CONTENU LIKE :s2 OR J.NOM_JIHA LIKE :s3) '
+      else
+        SQL := SQL +
+          'AND (B.OBJET LIKE :s1 OR B.CONTENU LIKE :s2 OR J.NOM_JIHA LIKE :s3) ';
+    end;
     SQL := SQL + 'ORDER BY B.DATE_REC DESC';
 
     qBraquiya.Close;
@@ -442,6 +687,8 @@ begin
     if AUrgence <> '' then qBraquiya.Parameters.ParamByName('ur').Value := AUrgence;
     if ASearch  <> '' then
     begin
+      if StrToIntDef(Trim(ASearch), 0) > 0 then
+        qBraquiya.Parameters.ParamByName('nbr').Value := StrToInt(Trim(ASearch));
       qBraquiya.Parameters.ParamByName('s1').Value := '%' + ASearch + '%';
       qBraquiya.Parameters.ParamByName('s2').Value := '%' + ASearch + '%';
       qBraquiya.Parameters.ParamByName('s3').Value := '%' + ASearch + '%';
@@ -796,11 +1043,12 @@ begin
     'SELECT COUNT(*) FROM BRAQUIYA WHERE ETAT=:e', 'e', AEtat);
 end;
 
-function TDM.ProbeColumn(const ATable, ACol: string): Boolean;
+function TDM.ProbeColumn(const ATable, ACol: string; out AError: string): Boolean;
 var
   q: TADOQuery;
 begin
   Result := True;
+  AError := '';
   q := TADOQuery.Create(nil);
   try
     q.Connection := Conn;
@@ -808,23 +1056,41 @@ begin
     try
       q.Open;
     except
-      Result := False;
+      on E: Exception do
+      begin
+        Result := False;
+        AError := E.Message;
+      end;
     end;
   finally
     q.Free;
   end;
 end;
 
+function TDM.ProbeColumn(const ATable, ACol: string): Boolean;
+var
+  Dummy: string;
+begin
+  Result := ProbeColumn(ATable, ACol, Dummy);
+end;
+
 function TDM.CheckSchema(out AMissing: string): Boolean;
+var
+  FirstErr, Err: string;
 
   procedure Need(const ATable, ACol: string);
   begin
-    if not ProbeColumn(ATable, ACol) then
+    if not ProbeColumn(ATable, ACol, Err) then
+    begin
       AMissing := AMissing + '  • ' + ATable + '.' + ACol + sLineBreak;
+      if (FirstErr = '') and (Err <> '') then
+        FirstErr := Err;
+    end;
   end;
 
 begin
   AMissing := '';
+  FirstErr := '';
   Need('BRAQUIYA', 'NUM_BRQ');
   Need('BRAQUIYA', 'DATE_REC');
   Need('BRAQUIYA', 'OBJET');
@@ -843,10 +1109,13 @@ begin
   Need('EMPLOYE', 'ROLE');
   Need('EMPLOYE', 'ACTIF');
 
+  if (AMissing <> '') and (FirstErr <> '') then
+    AMissing := AMissing + sLineBreak + 'تفاصيل الخطأ في الاستعلام: ' + FirstErr;
+
   // Optional column used for routing — does not block startup.
   FHasServiceCol := ProbeColumn('BRAQUIYA', 'SERVICE');
 
-  Result := AMissing = '';
+  Result := (AMissing = '');
 end;
 
 function TDM.ChangePassword(AUserId: Integer;

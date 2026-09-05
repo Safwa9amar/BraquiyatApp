@@ -167,7 +167,7 @@ begin
   else if F = 'REF_NUM' then
     Result := #1585#1602#1605' '#1575#1604#1606#1589                       // رقم النص
   else if F = 'HEURE' then
-    Result := #1575#1604#1608#1602#1578                                    // الوقت
+    Result := #1608#1602#1578' '#1575#1604#1573#1585#1587#1575#1604        // وقت الإرسال
   else if F = 'DESTINATAIRE' then
     Result := #1575#1604#1605#1585#1587#1604' '#1573#1604#1610#1607        // المرسل إليه
   else if F = 'SIGNATAIRE' then

@@ -68,6 +68,6 @@ INSERT INTO "braquiya" ("num_brq", "date_rec", "date_env", "objet", "type_brq", 
 INSERT INTO "employe" ("id_emp", "nom", "prenom", "poste", "username", "password", "role", "actif") VALUES (1,'hamza','hassani',NULL,'admin','admin123','USER',1);
 
 -- Table: JIHA
-INSERT INTO "jiha" ("id_jiha", "nom_jiha", "type_jiha", "telephone", "adresse") VALUES (1,'test','test','0674020244','qweqweqwe');
+INSERT INTO "jiha" ("id_jiha", "nom_jiha", "type_jiha", "telephone", "adresse") VALUES (1,'مديريات أخرى','AUTRE','0674020244','qweqweqwe');
 
 -- Table: ORIENTATION

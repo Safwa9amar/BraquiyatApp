@@ -19,12 +19,14 @@ type
   private
     FEdtOld, FEdtNew, FEdtConfirm: TEdit;
     FCmbStyle: TComboBox;
-    FLblDB:    TLabel;
+    FLblDB:       TLabel;
+    FLblProvider: TLabel;
     FSecCards: array[0..2] of TPanel;   // section cards (for rounded corners)
     FSecCount: Integer;
     procedure btnChangePwdClick(Sender: TObject);
     procedure btnApplyStyleClick(Sender: TObject);
     procedure btnTestDBClick(Sender: TObject);
+    procedure btnChooseDBClick(Sender: TObject);
     procedure PnlMainResize(Sender: TObject);
     procedure BtnEnter(Sender: TObject);
     procedure BtnLeave(Sender: TObject);
@@ -273,22 +275,46 @@ begin
   FCmbStyle.ItemIndex := FCmbStyle.Items.IndexOf(TStyleManager.ActiveStyle.Name);
 
   // ── Section 3: database ──
-  body := MakeSection('قاعدة البيانات', 146);
+  body := MakeSection('قاعدة البيانات', 176);
   FLblDB := TLabel.Create(Self);
   FLblDB.Parent      := body;
   FLblDB.Align       := alTop;
   FLblDB.AlignWithMargins := True;
-  FLblDB.Margins.SetBounds(2, 0, 2, 8);
+  FLblDB.Margins.SetBounds(2, 0, 2, 4);
   FLblDB.AutoSize    := False;
   FLblDB.Height      := 22;
-  FLblDB.Caption     := ExtractFilePath(ParamStr(0)) + 'Braquiyat.accdb';
+  if Assigned(DM) and (DM.DBPath <> '') then
+    FLblDB.Caption   := 'الملف: ' + DM.DBPath
+  else
+    FLblDB.Caption   := 'الملف: ' + ExtractFilePath(ParamStr(0)) + 'Braquiyat.accdb';
   FLblDB.Transparent := True;
   FLblDB.StyleElements := FLblDB.StyleElements - [seFont];
   FLblDB.Font.Name   := uTheme.FONT_NAME;
   FLblDB.Font.Size   := 9;
   FLblDB.Font.Color  := Muted;
   FLblDB.Layout      := tlCenter;
-  MakePrimaryButton(ButtonRow(body), 'فحص الاتصال', 150, alRight, btnTestDBClick);
+
+  FLblProvider := TLabel.Create(Self);
+  FLblProvider.Parent      := body;
+  FLblProvider.Align       := alTop;
+  FLblProvider.AlignWithMargins := True;
+  FLblProvider.Margins.SetBounds(2, 0, 2, 8);
+  FLblProvider.AutoSize    := False;
+  FLblProvider.Height      := 20;
+  if Assigned(DM) and (DM.DBProvider <> '') then
+    FLblProvider.Caption   := 'المشغل: ' + DM.DBProvider
+  else
+    FLblProvider.Caption   := 'المشغل: Microsoft.ACE.OLEDB (تلقائي)';
+  FLblProvider.Transparent := True;
+  FLblProvider.StyleElements := FLblProvider.StyleElements - [seFont];
+  FLblProvider.Font.Name   := uTheme.FONT_NAME;
+  FLblProvider.Font.Size   := 9;
+  FLblProvider.Font.Color  := Muted;
+  FLblProvider.Layout      := tlCenter;
+
+  row := ButtonRow(body);
+  MakePrimaryButton(row, 'فحص الاتصال', 130, alRight, btnTestDBClick);
+  MakePrimaryButton(row, 'تغيير المسار...', 130, alRight, btnChooseDBClick);
 
   PnlMainResize(pnlMain);
 end;
@@ -359,14 +385,60 @@ begin
     uTheme.SetActiveStyle(FCmbStyle.Text);
 end;
 
+procedure TfrmSettings.btnChooseDBClick(Sender: TObject);
+var
+  Dlg: TOpenDialog;
+begin
+  Dlg := TOpenDialog.Create(Self);
+  try
+    Dlg.Title := 'تحديد ملف قاعدة البيانات Braquiyat.accdb';
+    Dlg.Filter := 'قاعدة بيانات Access (*.accdb;*.mdb)|*.accdb;*.mdb|كل الملفات (*.*)|*.*';
+    if Assigned(DM) and (DM.DBPath <> '') then
+    begin
+      Dlg.InitialDir := ExtractFilePath(DM.DBPath);
+      Dlg.FileName   := ExtractFileName(DM.DBPath);
+    end
+    else
+    begin
+      Dlg.InitialDir := ExtractFilePath(ParamStr(0));
+      Dlg.FileName   := 'Braquiyat.accdb';
+    end;
+
+    if Dlg.Execute then
+    begin
+      try
+        if DM.SetDatabasePath(Dlg.FileName) then
+        begin
+          FLblDB.Caption := 'الملف: ' + DM.DBPath;
+          if Assigned(FLblProvider) then
+            FLblProvider.Caption := 'المشغل: ' + DM.DBProvider;
+          ShowMessage('تم تحديث مسار قاعدة البيانات وحفظه بنجاح');
+        end;
+      except
+        on E: Exception do
+          ShowMessage('تعذر الاتصال بقاعدة البيانات المحددة:' + sLineBreak + E.Message);
+      end;
+    end;
+  finally
+    Dlg.Free;
+  end;
+end;
+
 procedure TfrmSettings.btnTestDBClick(Sender: TObject);
 var
   Missing: string;
 begin
-  if DM.CheckSchema(Missing) then
-    ShowMessage('قاعدة البيانات سليمة والاتصال ناجح')
-  else
-    ShowMessage('عناصر ناقصة في قاعدة البيانات:' + sLineBreak + Missing);
+  try
+    if DM.CheckSchema(Missing) then
+      ShowMessage('قاعدة البيانات سليمة والاتصال ناجح!' + sLineBreak +
+                  'الملف: ' + DM.DBPath + sLineBreak +
+                  'المشغل: ' + DM.DBProvider)
+    else
+      ShowMessage('عناصر ناقصة في قاعدة البيانات:' + sLineBreak + Missing);
+  except
+    on E: Exception do
+      ShowMessage('خطأ في الاتصال بقاعدة البيانات:' + sLineBreak + E.Message);
+  end;
 end;
 
 end.

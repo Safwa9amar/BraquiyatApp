@@ -1,4 +1,4 @@
-﻿unit uArchive;
+unit uArchive;
 
 interface
 
@@ -29,11 +29,10 @@ type
     cmbMonth:    TComboBox;
     lblType:     TLabel;
     cmbType:     TComboBox;
-    lblFrom:     TLabel;
-    dtFrom:      TDateTimePicker;
-    lblTo:       TLabel;
-    dtTo:        TDateTimePicker;
+    lblSearch:   TLabel;
+    edtSearch:   TEdit;
     btnSearch:   TButton;
+    btnClear:    TButton;
     grdArchive:  TDBGrid;
     pnlFooter:   TPanel;
     lblCount:    TLabel;
@@ -41,6 +40,8 @@ type
     procedure btnRefreshClick(Sender: TObject);
     procedure btnRestoreClick(Sender: TObject);
     procedure btnSearchClick(Sender: TObject);
+    procedure btnClearClick(Sender: TObject);
+    procedure edtSearchKeyPress(Sender: TObject; var Key: Char);
     procedure btnPrintClick(Sender: TObject);
     procedure btnExportClick(Sender: TObject);
     procedure grdArchiveDrawColumnCell(Sender: TObject; const Rect: TRect;
@@ -97,16 +98,19 @@ begin
 
   lblYear.Caption  := #1575#1604#1587#1606#1577':';
   lblMonth.Caption := #1575#1604#1588#1607#1585':';
-  lblType.Caption  := #1575#1604#1606#1608#1593':';
-  lblFrom.Caption  := #1605#1606':';
-  lblTo.Caption    := #1573#1604#1609':';
-  btnSearch.Caption := #1576#1581#1579;
+  lblSearch.Caption := #1575#1604#1576#1581#1579':';   // البحث:
+  edtSearch.Text    := '';
+  btnSearch.Caption := #1576#1581#1579;              // بحث
+  btnClear.Caption  := #1578#1601#1585#1610#1594;     // تفريغ
 
   // Year
   cmbYear.Items.Clear;
+  cmbYear.Items.Add(#1575#1604#1603#1604);           // الكل
   for I := 2020 to YearOf(Date) + 1 do
     cmbYear.Items.Add(IntToStr(I));
-  cmbYear.ItemIndex := cmbYear.Items.Count - 2;
+  cmbYear.ItemIndex := cmbYear.Items.IndexOf(IntToStr(YearOf(Date)));
+  if cmbYear.ItemIndex < 0 then
+    cmbYear.ItemIndex := cmbYear.Items.Count - 1;
 
   // Month
   cmbMonth.Items.Clear;
@@ -121,18 +125,9 @@ begin
   cmbType.Items.AddStrings([#1575#1604#1603#1604, #1608#1575#1585#1583, #1589#1575#1583#1585]);
   cmbType.ItemIndex := 0;
 
-  dtFrom.Date := EncodeDate(YearOf(Date), 1, 1);
-  dtTo.Date   := Date;
-
   grdArchive.DataSource := DM.dsBraquiya;
   grdArchive.ReadOnly   := True;
   grdArchive.Options    := grdArchive.Options + [dgRowSelect];
-
-  // The archive filters by year/month/type; the free date pickers are redundant.
-  lblFrom.Visible := False;
-  lblTo.Visible   := False;
-  dtFrom.Visible  := False;
-  dtTo.Visible    := False;
 
   btnPrint.OnClick  := btnPrintClick;
   btnExport.OnClick := btnExportClick;
@@ -156,13 +151,22 @@ begin
     Typ := '';
   end;
 
-  if cmbYear.ItemIndex >= 0 then
+  if (cmbYear.ItemIndex > 0) then
+    Y := StrToIntDef(cmbYear.Items[cmbYear.ItemIndex], YearOf(Date))
+  else if (cmbYear.ItemIndex = 0) and (cmbYear.Items[0] = #1575#1604#1603#1604) then
+    Y := 0
+  else if cmbYear.ItemIndex >= 0 then
     Y := StrToIntDef(cmbYear.Items[cmbYear.ItemIndex], YearOf(Date))
   else
     Y := YearOf(Date);
 
   M := cmbMonth.ItemIndex;   // 0 = all months, 1..12 = specific month
-  if M <= 0 then
+  if Y = 0 then
+  begin
+    D1 := EncodeDate(2000, 1, 1);
+    D2 := EncodeDate(2099, 12, 31);
+  end
+  else if M <= 0 then
   begin
     D1 := EncodeDate(Y, 1, 1);
     D2 := EncodeDate(Y, 12, 31);
@@ -173,7 +177,7 @@ begin
     D2 := EndOfTheMonth(D1);
   end;
 
-  DM.OpenBraquiyat(Typ, ST_MORSAFA, '', D1, D2);
+  DM.OpenBraquiyat(Typ, ST_MORSAFA, '', D1, D2, Trim(edtSearch.Text));
   uTheme.SetupBraquiyaGrid(grdArchive);
   lblCount.Caption :=
     ' ' + #1575#1604#1571#1585#1588#1610#1601': ' +
@@ -206,6 +210,26 @@ end;
 procedure TfrmArchive.btnSearchClick(Sender: TObject);
 begin
   LoadData;
+end;
+
+procedure TfrmArchive.btnClearClick(Sender: TObject);
+begin
+  edtSearch.Clear;
+  cmbMonth.ItemIndex := 0;
+  cmbType.ItemIndex  := 0;
+  cmbYear.ItemIndex  := cmbYear.Items.IndexOf(IntToStr(YearOf(Date)));
+  if cmbYear.ItemIndex < 0 then
+    cmbYear.ItemIndex := 0;
+  LoadData;
+end;
+
+procedure TfrmArchive.edtSearchKeyPress(Sender: TObject; var Key: Char);
+begin
+  if Key = #13 then
+  begin
+    Key := #0;
+    btnSearchClick(Sender);
+  end;
 end;
 
 procedure TfrmArchive.grdArchiveDrawColumnCell(Sender: TObject; const Rect: TRect;

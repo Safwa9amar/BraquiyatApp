@@ -77,30 +77,6 @@ object frmArchive: TfrmArchive
         Width = 40
         Height = 16
       end
-      object lblMonth: TLabel
-        Left = 712
-        Top = 12
-        Width = 48
-        Height = 16
-      end
-      object lblType: TLabel
-        Left = 544
-        Top = 12
-        Width = 40
-        Height = 16
-      end
-      object lblFrom: TLabel
-        Left = 300
-        Top = 12
-        Width = 40
-        Height = 16
-      end
-      object lblTo: TLabel
-        Left = 150
-        Top = 12
-        Width = 40
-        Height = 16
-      end
       object cmbYear: TComboBox
         Left = 772
         Top = 8
@@ -109,47 +85,63 @@ object frmArchive: TfrmArchive
         Style = csDropDownList
         TabOrder = 0
       end
+      object lblMonth: TLabel
+        Left = 712
+        Top = 12
+        Width = 48
+        Height = 16
+      end
       object cmbMonth: TComboBox
-        Left = 596
+        Left = 600
         Top = 8
-        Width = 110
+        Width = 106
         Height = 24
         Style = csDropDownList
         TabOrder = 1
       end
+      object lblType: TLabel
+        Left = 554
+        Top = 12
+        Width = 40
+        Height = 16
+      end
       object cmbType: TComboBox
-        Left = 448
+        Left = 472
         Top = 8
-        Width = 90
+        Width = 76
         Height = 24
         Style = csDropDownList
         TabOrder = 2
       end
-      object dtFrom: TDateTimePicker
-        Left = 180
-        Top = 8
-        Width = 110
-        Height = 24
-        Date = 46138.000000000000000000
-        Time = 0.000000000000000000
-        TabOrder = 3
+      object lblSearch: TLabel
+        Left = 422
+        Top = 12
+        Width = 44
+        Height = 16
       end
-      object dtTo: TDateTimePicker
-        Left = 30
+      object edtSearch: TEdit
+        Left = 190
         Top = 8
-        Width = 110
+        Width = 226
         Height = 24
-        Date = 46138.000000000000000000
-        Time = 0.000000000000000000
-        TabOrder = 4
+        TabOrder = 3
+        OnKeyPress = edtSearchKeyPress
       end
       object btnSearch: TButton
-        Left = 360
+        Left = 102
+        Top = 8
+        Width = 80
+        Height = 26
+        TabOrder = 4
+        OnClick = btnSearchClick
+      end
+      object btnClear: TButton
+        Left = 16
         Top = 8
         Width = 80
         Height = 26
         TabOrder = 5
-        OnClick = btnSearchClick
+        OnClick = btnClearClick
       end
     end
     object grdArchive: TDBGrid

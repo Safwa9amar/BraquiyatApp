@@ -63,6 +63,25 @@ The startup self‑check reports any missing tables/columns in Arabic. For full 
 > Note: passwords are currently stored as plain text in the sample database (legacy behaviour).
 > The Settings screen lets users change their password; hashing is a recommended future enhancement.
 
+### حل مشكلة الاتصال بقاعدة البيانات عند تغيير الجهاز / Database Connection on Another PC
+
+إذا ظهرت لك رسالة خطأ في الاتصال بقاعدة البيانات عند نقل البرنامج إلى جهاز آخر:
+
+1. **مشغل قاعدة البيانات (Microsoft Access Database Engine)**:
+   - البرنامج مبني كـ **Win32 (32-bit)**، وبالتالي يحتاج إلى مشغل **32-bit OLEDB Provider**.
+   - إذا كان الجهاز الجديد مثبتاً عليه Office 2016 / 2019 / 2021 أو Microsoft 365، يقوم البرنامج تلقائياً بالتبديل إلى `Microsoft.ACE.OLEDB.16.0`.
+   - إذا كان الجهاز الجديد لا يحتوي على Microsoft Office أو مثبت عليه Office 64-bit فقط، يجب تثبيت:
+     **[Microsoft Access Database Engine 2016 Redistributable (32-bit)](https://www.microsoft.com/en-us/download/details.aspx?id=54920)** (اختر ملف `accessdatabaseengine.exe` بحجم ~32-bit).
+
+2. **مسار قاعدة البيانات (`Braquiyat.accdb`)**:
+   - تأكد من وضع ملف `Braquiyat.accdb` بجانب ملف `BraquiyatApp.exe`.
+   - يمكن أيضاً تحديد المسار يدوياً في ملف `BraquiyatApp.ini`:
+     ```ini
+     [Database]
+     Path=C:\Path\To\Braquiyat.accdb
+     ```
+   - أو من خلال شاشة **الإعدادات ▸ قاعدة البيانات ▸ تغيير المسار...** مباشرة داخل التطبيق.
+
 ---
 
 ## رخصة / License

@@ -290,20 +290,6 @@ object frmFormBraquiya: TfrmFormBraquiya
         ParentFont = False
         TabOrder = 7
       end
-      object rbIdari: TRadioButton
-        Left = 100
-        Top = 128
-        Width = 70
-        Height = 18
-        Caption = #1573#1583#1575#1585#1610
-        Font.Charset = DEFAULT_CHARSET
-        Font.Color = clWindowText
-        Font.Height = -10
-        Font.Name = 'Tahoma'
-        Font.Style = []
-        ParentFont = False
-        TabOrder = 8
-      end
     end
     object pnlSec2: TPanel
       Left = 8

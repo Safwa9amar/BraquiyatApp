@@ -1,4 +1,4 @@
-﻿unit uDashboard;
+unit uDashboard;
 
 interface
 
@@ -28,10 +28,10 @@ type
     FValLbls:  array[0..3] of TLabel;
     FUrgBody:  TLabel;
     FStatBody: TLabel;
-    FTrack:    array[0..3] of TPanel;   // priority bar track
-    FFill:     array[0..3] of TPanel;   // priority bar colored fill
-    FPcts:     array[0..3] of TLabel;   // priority percentage label
-    FPctVal:   array[0..3] of Integer;  // cached percentage (for resize)
+    FTrack:    array[0..2] of TPanel;   // priority bar track
+    FFill:     array[0..2] of TPanel;   // priority bar colored fill
+    FPcts:     array[0..2] of TLabel;   // priority percentage label
+    FPctVal:   array[0..2] of Integer;  // cached percentage (for resize)
     FRowUrg:   array[0..8] of string;   // per-row urgency code (for badge color)
     FRowEtat:  array[0..8] of string;   // per-row state code (for status dot)
     procedure CreateStatCards;
@@ -63,7 +63,7 @@ const
   CLR_BG     = $00FAF8F7;   // near-white page background (#F7F8FA)
 
   // Urgency codes shown (in order) by the priority-distribution card
-  PRIORITY_URG: array[0..3] of string = (URG_AJIL, URG_ADI, URG_SIRRI, URG_IDARI);
+  PRIORITY_URG: array[0..2] of string = (URG_AJIL, URG_ADI, URG_SIRRI);
 
 type
   TCtrlCrack = class(TControl);   // exposes the protected OnResize event
@@ -568,7 +568,7 @@ begin
   lblFoot.BiDiMode   := bdRightToLeft;
   lblFoot.Alignment  := taLeftJustify;
 
-  for I := 0 to 3 do
+  for I := 0 to High(PRIORITY_URG) do
     MakeBarRow(I);
 end;
 
@@ -576,7 +576,7 @@ procedure TfrmDashboard.BarsResize(Sender: TObject);
 var
   I, tw: Integer;
 begin
-  for I := 0 to 3 do
+  for I := 0 to High(PRIORITY_URG) do
     if Assigned(FFill[I]) and Assigned(FTrack[I]) then
     begin
       tw := FTrack[I].ClientWidth;
@@ -632,12 +632,12 @@ begin
 
   // Priority-distribution bars
   Total := 0;
-  for I := 0 to 3 do
+  for I := 0 to High(PRIORITY_URG) do
   begin
     Cnt[I] := DM.GetCountByUrgency(PRIORITY_URG[I]);
     Inc(Total, Cnt[I]);
   end;
-  for I := 0 to 3 do
+  for I := 0 to High(PRIORITY_URG) do
   begin
     if Total > 0 then
       FPctVal[I] := Round(Cnt[I] / Total * 100)

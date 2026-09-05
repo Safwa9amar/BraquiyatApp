@@ -1,4 +1,4 @@
-﻿unit uSader;
+unit uSader;
 
 interface
 
@@ -116,8 +116,7 @@ begin
 
   cmbUrgence.Items.Clear;
   cmbUrgence.Items.AddStrings([
-    #1575#1604#1603#1604, #1593#1575#1580#1604, #1593#1575#1583#1610, #1587#1585#1610,
-    #1573#1583#1575#1585#1610]);
+    #1575#1604#1603#1604, #1593#1575#1580#1604, #1593#1575#1583#1610, #1587#1585#1610]);
   cmbUrgence.ItemIndex := 0;
 
   cmbEtat.Items.Clear;
@@ -159,7 +158,6 @@ begin
     1: U := URG_AJIL;
     2: U := URG_ADI;
     3: U := URG_SIRRI;
-    4: U := URG_IDARI;
   else
     U := '';
   end;
