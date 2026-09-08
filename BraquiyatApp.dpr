@@ -1,4 +1,4 @@
-﻿program BraquiyatApp;
+program BraquiyatApp;
 
 uses
   Vcl.Forms,
@@ -31,6 +31,12 @@ begin
   Application.Initialize;
   Application.MainFormOnTaskbar := True;
   Application.Title             := 'نظام تسيير البرقيات';
+
+  if FileExists(ExtractFilePath(ParamStr(0)) + 'BraquiyatApp.ico') then
+  try
+    Application.Icon.LoadFromFile(ExtractFilePath(ParamStr(0)) + 'BraquiyatApp.ico');
+  except
+  end;
 
   // Activate the VCL style chosen in <exe>.ini (falls back gracefully).
   uTheme.ApplyStartupStyle;

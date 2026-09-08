@@ -1,4 +1,4 @@
-﻿unit uUtils;
+unit uUtils;
 
 interface
 
@@ -34,7 +34,16 @@ function BuildDataSetHTML(ADataSet: TDataSet; const ATitle: string): string;
 function ExportDataSetToHTML(ADataSet: TDataSet; const AFile, ATitle: string): Boolean;
 procedure OpenFileExternally(const AFile: string);
 
+// Attachment & Print utilities
+function GetAttachmentFullPath(const AFileName: string): string;
+function PreviewAttachment(const AFileName: string): Boolean;
+function PrintFileBasedOnType(const AFile: string): Boolean;
+
 implementation
+
+uses
+  Vcl.Printers, Vcl.Graphics, Vcl.Dialogs, Vcl.Forms,
+  Vcl.Imaging.jpeg, Vcl.Imaging.pngimage, System.IOUtils;
 
 function FormatArabicDate(const ADate: TDateTime): string;
 begin
@@ -254,6 +263,144 @@ end;
 procedure OpenFileExternally(const AFile: string);
 begin
   ShellExecute(0, 'open', PChar(AFile), nil, nil, SW_SHOWNORMAL);
+end;
+
+function GetAttachmentFullPath(const AFileName: string): string;
+var
+  S, AttachDir: string;
+begin
+  Result := '';
+  S := Trim(AFileName);
+  if S = '' then Exit;
+  if FileExists(S) then
+    Exit(S);
+  AttachDir := ExtractFilePath(ParamStr(0)) + 'Attachments' + PathDelim;
+  if FileExists(AttachDir + S) then
+    Exit(AttachDir + S);
+  if FileExists(AttachDir + ExtractFileName(S)) then
+    Exit(AttachDir + ExtractFileName(S));
+  if FileExists(ExtractFilePath(ParamStr(0)) + S) then
+    Exit(ExtractFilePath(ParamStr(0)) + S);
+end;
+
+function PreviewAttachment(const AFileName: string): Boolean;
+var
+  FullPath: string;
+begin
+  Result := False;
+  if Trim(AFileName) = '' then
+  begin
+    ShowMessage(#1604#1575' '#1610#1608#1580#1583' '#1605#1604#1601' '#1605#1585#1601#1602' '#1604#1607#1584#1607' '#1575#1604#1576#1585#1602#1610#1577);  // لا يوجد ملف مرفق لهذه البرقية
+    Exit;
+  end;
+  FullPath := GetAttachmentFullPath(AFileName);
+  if (FullPath <> '') and FileExists(FullPath) then
+  begin
+    OpenFileExternally(FullPath);
+    Result := True;
+  end
+  else
+    ShowMessage(#1578#1593#1584#1585' '#1575#1604#1593#1570#1608#1585' '#1593#1604#1609' '#1575#1604#1605#1604#1601' '#1575#1604#1605#1585#1601#1602': ' + sLineBreak + AFileName);  // تعذر العثور على الملف المرفق
+end;
+
+function PrintImageFile(const AFile: string): Boolean;
+var
+  PrintDlg: TPrintDialog;
+  Pic: TPicture;
+  ScaleX, ScaleY, Scale: Double;
+  DrawWidth, DrawHeight: Integer;
+  OffsetX, OffsetY: Integer;
+  PrintW, PrintH, Margin: Integer;
+begin
+  Result := False;
+  Pic := TPicture.Create;
+  try
+    Pic.LoadFromFile(AFile);
+    if (Pic.Width <= 0) or (Pic.Height <= 0) then Exit;
+
+    PrintDlg := TPrintDialog.Create(nil);
+    try
+      if PrintDlg.Execute then
+      begin
+        Printer.BeginDoc;
+        try
+          Printer.Title := ExtractFileName(AFile);
+          Margin := Round(Printer.PageWidth * 0.05); // 5% margins
+          PrintW := Printer.PageWidth - (Margin * 2);
+          PrintH := Printer.PageHeight - (Margin * 2);
+
+          ScaleX := PrintW / Pic.Width;
+          ScaleY := PrintH / Pic.Height;
+          if ScaleX < ScaleY then
+            Scale := ScaleX
+          else
+            Scale := ScaleY;
+
+          DrawWidth  := Round(Pic.Width * Scale);
+          DrawHeight := Round(Pic.Height * Scale);
+          OffsetX := Margin + ((PrintW - DrawWidth) div 2);
+          OffsetY := Margin + ((PrintH - DrawHeight) div 2);
+
+          Printer.Canvas.StretchDraw(
+            Rect(OffsetX, OffsetY, OffsetX + DrawWidth, OffsetY + DrawHeight),
+            Pic.Graphic);
+          Result := True;
+        finally
+          Printer.EndDoc;
+        end;
+      end;
+    finally
+      PrintDlg.Free;
+    end;
+  finally
+    Pic.Free;
+  end;
+end;
+
+function PrintFileBasedOnType(const AFile: string): Boolean;
+var
+  FullPath, Ext: string;
+  Ret: HINST;
+begin
+  Result := False;
+  FullPath := GetAttachmentFullPath(AFile);
+  if (FullPath = '') or (not FileExists(FullPath)) then
+  begin
+    ShowMessage(#1578#1593#1584#1585' '#1575#1604#1593#1570#1608#1585' '#1593#1604#1609' '#1575#1604#1605#1604#1601' '#1575#1604#1605#1585#1575#1583' '#1591#1576#1575#1593#1578#1607': ' + sLineBreak + AFile); // تعذر العثور على الملف المراد طباعته
+    Exit;
+  end;
+
+  Ext := LowerCase(ExtractFileExt(FullPath));
+
+  // 1. Image formats: print directly to printer via canvas (avoids opening preview app)
+  if (Ext = '.jpg') or (Ext = '.jpeg') or (Ext = '.png') or
+     (Ext = '.bmp') or (Ext = '.ico') or (Ext = '.emf') or (Ext = '.wmf') then
+  begin
+    try
+      Result := PrintImageFile(FullPath);
+      Exit;
+    except
+      // If graphic parsing fails, fall through to shell print below
+    end;
+  end;
+
+  // 2. Documents (PDF, Word, Text, HTML, etc.): invoke Windows Shell print verb
+  Ret := ShellExecute(0, 'print', PChar(FullPath), nil, nil, SW_SHOWNORMAL);
+  if Ret > 32 then
+  begin
+    Result := True;
+    Exit;
+  end;
+
+  // 3. Fallback: if no direct print verb is registered, open in default app
+  Ret := ShellExecute(0, 'open', PChar(FullPath), nil, nil, SW_SHOWNORMAL);
+  if Ret > 32 then
+  begin
+    ShowMessage(#1578#1605' '#1601#1578#1581' '#1575#1604#1605#1604#1601' (' + ExtractFileName(FullPath) + ') '#1601#1610' '#1576#1585#1606#1575#1605#1580#1607' '#1575#1604#1575#1601#1578#1585#1575#1586#1610' '#1604#1604#1591#1576#1575#1593#1577'.'); // تم فتح الملف في برنامجه الافتراضي للطباعة
+    Result := True;
+  end
+  else
+    ShowMessage(#1578#1593#1584#1585' '#1601#1578#1581' '#1571#1608' '#1591#1576#1575#1593#1577' '#1575#1604#1605#1604#1601': ' + ExtractFileName(FullPath)); // تعذر فتح أو طباعة الملف
 end;
 
 end.

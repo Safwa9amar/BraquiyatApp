@@ -1,4 +1,4 @@
-﻿unit uMain;
+unit uMain;
 
 interface
 
@@ -109,7 +109,8 @@ uses
   uSettings,
   uConsts,
   uTheme,
-  uLogin;
+  uLogin,
+  Vcl.Imaging.pngimage;
 
 procedure TfrmMain.FormCreate(Sender: TObject);
 begin
@@ -203,6 +204,8 @@ var
   IcoLbl, TxtLbl: TLabel;
   HBorder, HBorder2, Chip, Dot, StatusRow, TextBox: TPanel;
   HIco, HL1, HL2, StatusLbl: TLabel;
+  LogoFile: string;
+  LogoImg:  TImage;
 begin
   // ── Light sidebar shell ──
   pnlSidebar.StyleElements    := pnlSidebar.StyleElements - [seClient];
@@ -250,6 +253,24 @@ begin
   HIco.Font.Color   := uTheme.ACCENT_BLUE;
   HIco.Alignment    := taCenter;
   HIco.Layout       := tlCenter;
+
+  LogoFile := ExtractFilePath(ParamStr(0)) + 'Assets' + PathDelim + 'logo.png';
+  if not FileExists(LogoFile) then
+    LogoFile := ExtractFilePath(ParamStr(0)) + 'logo.png';
+  if not FileExists(LogoFile) then
+    LogoFile := ExtractFilePath(ParamStr(0)) + 'Assets' + PathDelim + 'logo.bmp';
+  if FileExists(LogoFile) then
+  try
+    LogoImg := TImage.Create(Self);
+    LogoImg.Parent := Chip;
+    LogoImg.Align := alClient;
+    LogoImg.Stretch := True;
+    LogoImg.Proportional := True;
+    LogoImg.Picture.LoadFromFile(LogoFile);
+    HIco.Visible := False;
+    Chip.Color := clNone;
+  except
+  end;
 
   TextBox := TPanel.Create(Self);
   TextBox.Parent       := pnlSideHeader;

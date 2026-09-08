@@ -1,4 +1,4 @@
-﻿unit uTheme;
+unit uTheme;
 
 {
   Single source of truth for the application's look & feel.
@@ -239,9 +239,20 @@ begin
 end;
 
 procedure StyleForm(AForm: TForm);
+var
+  IcoFile: string;
 begin
   AForm.Font.Name := FONT_NAME;
   AForm.Font.Size := FONT_BASE;
+
+  IcoFile := ExtractFilePath(ParamStr(0)) + 'BraquiyatApp.ico';
+  if not FileExists(IcoFile) then
+    IcoFile := ExtractFilePath(ParamStr(0)) + 'Assets' + PathDelim + 'app_icon.ico';
+  if FileExists(IcoFile) then
+  try
+    AForm.Icon.LoadFromFile(IcoFile);
+  except
+  end;
 end;
 
 // Clip a control to a rounded rectangle. Must be re-applied whenever the
@@ -271,7 +282,12 @@ begin
         if SameText(AGrid.Columns[I].FieldName, 'TYPE_BRQ') then
           AGrid.Columns[I].Visible := False
         else if SameText(AGrid.Columns[I].FieldName, 'OBJET') then
-          AGrid.Columns[I].Width := 240;
+          AGrid.Columns[I].Width := 240
+        else if SameText(AGrid.Columns[I].FieldName, 'ATTACHMENT') then
+        begin
+          AGrid.Columns[I].Width := 130;
+          AGrid.Columns[I].Alignment := taCenter;
+        end;
       end;
   end;
 end;
@@ -296,6 +312,23 @@ begin
   begin
     Txt := StateLabel(AColumn.Field.AsString);
     Clr := EtatColor(AColumn.Field.AsString);
+  end
+  else if Fn = 'ATTACHMENT' then
+  begin
+    if Trim(AColumn.Field.AsString) <> '' then
+    begin
+      Txt := ExtractFileName(AColumn.Field.AsString);
+      if (Copy(Txt, 1, 3) = 'BRQ') and (Pos('_', Txt) > 4) then
+        Txt := Copy(Txt, Pos('_', Txt) + 1, Length(Txt));
+      if Length(Txt) > 16 then
+        Txt := Copy(Txt, 1, 14) + '..';
+      Clr := $00C06010; // Accent blue/cyan
+    end
+    else
+    begin
+      Txt := '-';
+      Clr := MutedText;
+    end;
   end
   else
     Exit;  // not a badge column — leave default drawing untouched

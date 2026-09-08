@@ -22,6 +22,7 @@ type
     btnRestore:  TButton;
     btnPrint:    TButton;
     btnExport:   TButton;
+    btnPreviewAttach: TButton;
     pnlSearch:   TPanel;
     lblYear:     TLabel;
     cmbYear:     TComboBox;
@@ -44,6 +45,8 @@ type
     procedure edtSearchKeyPress(Sender: TObject; var Key: Char);
     procedure btnPrintClick(Sender: TObject);
     procedure btnExportClick(Sender: TObject);
+    procedure btnPreviewAttachClick(Sender: TObject);
+    procedure grdArchiveDblClick(Sender: TObject);
     procedure grdArchiveDrawColumnCell(Sender: TObject; const Rect: TRect;
       DataCol: Integer; Column: TColumn; State: TGridDrawState);
   private
@@ -131,7 +134,15 @@ begin
 
   btnPrint.OnClick  := btnPrintClick;
   btnExport.OnClick := btnExportClick;
+  grdArchive.OnDblClick := grdArchiveDblClick;
   grdArchive.OnDrawColumnCell := grdArchiveDrawColumnCell;
+
+  btnPreviewAttach := TButton.Create(Self);
+  btnPreviewAttach.Parent  := pnlToolbar;
+  btnPreviewAttach.SetBounds(460, 4, 90, 28);
+  btnPreviewAttach.Caption := #1605#1593#1575#1610#1606#1577' '#1575#1604#1605#1604#1601; // معاينة الملف
+  btnPreviewAttach.Cursor  := crHandPoint;
+  btnPreviewAttach.OnClick := btnPreviewAttachClick;
 
   uTheme.StyleForm(Self);
 
@@ -232,6 +243,32 @@ begin
   end;
 end;
 
+procedure TfrmArchive.btnPreviewAttachClick(Sender: TObject);
+var
+  AttachVal: string;
+begin
+  if DM.qBraquiya.IsEmpty then Exit;
+  if Assigned(DM.qBraquiya.FindField('ATTACHMENT')) then
+    AttachVal := DM.qBraquiya.FieldByName('ATTACHMENT').AsString
+  else
+    AttachVal := '';
+  uUtils.PreviewAttachment(AttachVal);
+end;
+
+procedure TfrmArchive.grdArchiveDblClick(Sender: TObject);
+var
+  AttachVal: string;
+begin
+  if DM.qBraquiya.IsEmpty then Exit;
+  if Assigned(grdArchive.SelectedField) and
+     SameText(grdArchive.SelectedField.FieldName, 'ATTACHMENT') then
+  begin
+    AttachVal := grdArchive.SelectedField.AsString;
+    if Trim(AttachVal) <> '' then
+      uUtils.PreviewAttachment(AttachVal);
+  end;
+end;
+
 procedure TfrmArchive.grdArchiveDrawColumnCell(Sender: TObject; const Rect: TRect;
   DataCol: Integer; Column: TColumn; State: TGridDrawState);
 begin
@@ -240,9 +277,38 @@ end;
 
 procedure TfrmArchive.btnPrintClick(Sender: TObject);
 var
-  F: string;
+  F, AttachVal, FullPath: string;
+  HasAttach: Boolean;
+  Choice: Integer;
 begin
   if DM.qBraquiya.IsEmpty then Exit;
+
+  HasAttach := False;
+  AttachVal := '';
+  if Assigned(DM.qBraquiya.FindField('ATTACHMENT')) then
+  begin
+    AttachVal := DM.qBraquiya.FieldByName('ATTACHMENT').AsString;
+    FullPath  := uUtils.GetAttachmentFullPath(AttachVal);
+    HasAttach := (FullPath <> '') and FileExists(FullPath);
+  end;
+
+  if HasAttach then
+  begin
+    Choice := MessageDlg(
+      #1607#1604' '#1578#1585#1610#1583' '#1591#1576#1575#1593#1577' '#1575#1604#1605#1604#1601' '#1575#1604#1605#1585#1601#1602' (' + ExtractFileName(FullPath) + ') '#1571#1605' '#1591#1576#1575#1593#1577' '#1602#1575#1574#1605#1577' '#1575#1604#1576#1585#1602#1610#1575#1578#1567 + sLineBreak + sLineBreak +
+      '[' + #1606#1593#1605 + '] : ' + #1591#1576#1575#1593#1577' '#1575#1604#1605#1604#1601' '#1575#1604#1605#1585#1601#1602 + sLineBreak +
+      '[' + #1604#1575 + '] : ' + #1591#1576#1575#1593#1577' '#1602#1575#1574#1605#1577' '#1575#1604#1576#1585#1602#1610#1575#1578,
+      mtConfirmation, [mbYes, mbNo, mbCancel], 0);
+
+    if Choice = mrYes then
+    begin
+      uUtils.PrintFileBasedOnType(FullPath);
+      Exit;
+    end
+    else if Choice = mrCancel then
+      Exit;
+  end;
+
   F := TPath.Combine(TPath.GetTempPath, 'archive.html');
   if uUtils.ExportDataSetToHTML(DM.qBraquiya, F, #1575#1604#1571#1585#1588#1610#1601) then
     uUtils.OpenFileExternally(F);

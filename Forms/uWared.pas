@@ -26,6 +26,7 @@ type
     btnRefresh:  TButton;
     btnPrint:    TButton;
     btnExport:   TButton;
+    btnPreviewAttach: TButton;
     pnlSearch:   TPanel;
     lblSearch:   TLabel;
     edtSearch:   TEdit;
@@ -51,6 +52,7 @@ type
     procedure btnClearClick(Sender: TObject);
     procedure btnPrintClick(Sender: TObject);
     procedure btnExportClick(Sender: TObject);
+    procedure btnPreviewAttachClick(Sender: TObject);
     procedure grdBraquiyaDblClick(Sender: TObject);
     procedure grdBraquiyaDrawColumnCell(Sender: TObject; const Rect: TRect;
       DataCol: Integer; Column: TColumn; State: TGridDrawState);
@@ -146,6 +148,13 @@ begin
   btnExport.OnClick   := btnExportClick;
   edtSearch.OnKeyPress := edtSearchKeyPress;
   grdBraquiya.OnDrawColumnCell := grdBraquiyaDrawColumnCell;
+
+  btnPreviewAttach := TButton.Create(Self);
+  btnPreviewAttach.Parent  := pnlToolbar;
+  btnPreviewAttach.SetBounds(350, 4, 90, 24);
+  btnPreviewAttach.Caption := #1605#1593#1575#1610#1606#1577' '#1575#1604#1605#1604#1601; // معاينة الملف
+  btnPreviewAttach.Cursor  := crHandPoint;
+  btnPreviewAttach.OnClick := btnPreviewAttachClick;
 
   uTheme.StyleForm(Self);
 
@@ -283,8 +292,33 @@ begin
   LoadData;
 end;
 
-procedure TfrmWared.grdBraquiyaDblClick(Sender: TObject);
+procedure TfrmWared.btnPreviewAttachClick(Sender: TObject);
+var
+  AttachVal: string;
 begin
+  if DM.qBraquiya.IsEmpty then Exit;
+  if Assigned(DM.qBraquiya.FindField('ATTACHMENT')) then
+    AttachVal := DM.qBraquiya.FieldByName('ATTACHMENT').AsString
+  else
+    AttachVal := '';
+  uUtils.PreviewAttachment(AttachVal);
+end;
+
+procedure TfrmWared.grdBraquiyaDblClick(Sender: TObject);
+var
+  AttachVal: string;
+begin
+  if DM.qBraquiya.IsEmpty then Exit;
+  if Assigned(grdBraquiya.SelectedField) and
+     SameText(grdBraquiya.SelectedField.FieldName, 'ATTACHMENT') then
+  begin
+    AttachVal := grdBraquiya.SelectedField.AsString;
+    if Trim(AttachVal) <> '' then
+    begin
+      uUtils.PreviewAttachment(AttachVal);
+      Exit;
+    end;
+  end;
   btnEditClick(Sender);
 end;
 
@@ -296,13 +330,42 @@ end;
 
 procedure TfrmWared.btnPrintClick(Sender: TObject);
 var
-  F: string;
+  F, AttachVal, FullPath: string;
+  HasAttach: Boolean;
+  Choice: Integer;
 begin
   if DM.qBraquiya.IsEmpty then
   begin
-    ShowMessage(#1604#1575' '#1578#1608#1580#1583' '#1576#1610#1575#1606#1575#1578' '#1604#1604#1591#1576#1575#1593#1577);
+    ShowMessage(#1604#1575' '#1578#1608#1580#1583' '#1576#1610#1575#1606#1575#1578' '#1604#1604#1591#1576#1575#1593#1577); // لا توجد بيانات للطباعة
     Exit;
   end;
+
+  HasAttach := False;
+  AttachVal := '';
+  if Assigned(DM.qBraquiya.FindField('ATTACHMENT')) then
+  begin
+    AttachVal := DM.qBraquiya.FieldByName('ATTACHMENT').AsString;
+    FullPath  := uUtils.GetAttachmentFullPath(AttachVal);
+    HasAttach := (FullPath <> '') and FileExists(FullPath);
+  end;
+
+  if HasAttach then
+  begin
+    Choice := MessageDlg(
+      #1607#1604' '#1578#1585#1610#1583' '#1591#1576#1575#1593#1577' '#1575#1604#1605#1604#1601' '#1575#1604#1605#1585#1601#1602' (' + ExtractFileName(FullPath) + ') '#1571#1605' '#1591#1576#1575#1593#1577' '#1602#1575#1574#1605#1577' '#1575#1604#1576#1585#1602#1610#1575#1578#1567 + sLineBreak + sLineBreak +
+      '[' + #1606#1593#1605 + '] : ' + #1591#1576#1575#1593#1577' '#1575#1604#1605#1604#1601' '#1575#1604#1605#1585#1601#1602 + sLineBreak +
+      '[' + #1604#1575 + '] : ' + #1591#1576#1575#1593#1577' '#1602#1575#1574#1605#1577' '#1575#1604#1576#1585#1602#1610#1575#1578,
+      mtConfirmation, [mbYes, mbNo, mbCancel], 0);
+
+    if Choice = mrYes then
+    begin
+      uUtils.PrintFileBasedOnType(FullPath);
+      Exit;
+    end
+    else if Choice = mrCancel then
+      Exit;
+  end;
+
   F := TPath.Combine(TPath.GetTempPath, 'braquiyat_wared.html');
   if uUtils.ExportDataSetToHTML(DM.qBraquiya, F,
        #1575#1604#1576#1585#1602#1610#1575#1578' '#1575#1604#1608#1575#1585#1583#1577) then

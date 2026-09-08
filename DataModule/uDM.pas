@@ -657,7 +657,8 @@ begin
     // stored in DATE_REC.
     SQL :=
       'SELECT B.NUM_BRQ, B.DATE_REC, B.OBJET, B.URGENCE, ' +
-      '       B.ETAT, B.TYPE_BRQ, J.NOM_JIHA ' +
+      '       B.ETAT, B.TYPE_BRQ, J.NOM_JIHA, ' +
+      '       IIF(B.ATTACHMENT IS NULL, '''', B.ATTACHMENT) AS ATTACHMENT ' +
       'FROM BRAQUIYA B ' +
       'LEFT JOIN JIHA J ON B.ID_JIHA = J.ID_JIHA ' +
       'WHERE B.DATE_REC >= ' + ACEDateLit(ADateFrom) +

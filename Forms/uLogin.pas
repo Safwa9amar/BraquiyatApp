@@ -1,4 +1,4 @@
-﻿unit uLogin;
+unit uLogin;
 
 interface
 
@@ -71,11 +71,14 @@ implementation
 uses
   uDM,
   uMain,
-  uTheme;
+  uTheme,
+  Vcl.Imaging.pngimage;
 
 procedure TfrmLogin.FormCreate(Sender: TObject);
 var
   TextMain, FieldFill, Muted, Navy: TColor;
+  LogoPath: string;
+  ImgLogo: TImage;
 begin
   Caption     := '';
   BorderStyle := bsNone;
@@ -138,6 +141,23 @@ begin
   lblLogoIcon.StyleElements := lblLogoIcon.StyleElements - [seFont];
   lblLogoIcon.Transparent  := True;
   lblLogoIcon.Font.Color   := clWhite;
+
+  LogoPath := ExtractFilePath(ParamStr(0)) + 'Assets' + PathDelim + 'logo.png';
+  if not FileExists(LogoPath) then
+    LogoPath := ExtractFilePath(ParamStr(0)) + 'logo.png';
+  if not FileExists(LogoPath) then
+    LogoPath := ExtractFilePath(ParamStr(0)) + 'Assets' + PathDelim + 'logo.bmp';
+  if FileExists(LogoPath) then
+  try
+    ImgLogo := TImage.Create(Self);
+    ImgLogo.Parent := pnlLogo;
+    ImgLogo.Align := alClient;
+    ImgLogo.Stretch := True;
+    ImgLogo.Proportional := True;
+    ImgLogo.Picture.LoadFromFile(LogoPath);
+    lblLogoIcon.Visible := False;
+  except
+  end;
 
   // Titles
   lblAppTitle.StyleElements := lblAppTitle.StyleElements - [seFont];

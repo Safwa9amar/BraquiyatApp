@@ -808,7 +808,8 @@ end;
 procedure TfrmFormBraquiya.btnPrintClick(Sender: TObject);
 var
   SL: TStringList;
-  F: string;
+  F, P: string;
+  Choice: Integer;
 
   procedure Row(const AField, AValue: string);
   begin
@@ -818,6 +819,29 @@ var
   end;
 
 begin
+  if FAttachPath <> '' then
+  begin
+    P := FAttachPath;
+    if not FileExists(P) then
+      P := AttachFolder + FAttachPath;
+    if FileExists(P) then
+    begin
+      Choice := MessageDlg(
+        #1607#1604' '#1578#1585#1610#1583' '#1591#1576#1575#1593#1577' '#1575#1604#1605#1604#1601' '#1575#1604#1605#1585#1601#1602' (' + ExtractFileName(P) + ') '#1571#1605' '#1591#1576#1575#1593#1577' '#1578#1601#1575#1589#1610#1604' '#1575#1604#1576#1585#1602#1610#1577#1567 + sLineBreak + sLineBreak +
+        '[' + #1606#1593#1605 + '] : ' + #1591#1576#1575#1593#1577' '#1575#1604#1605#1604#1601' '#1575#1604#1605#1585#1601#1602 + sLineBreak +
+        '[' + #1604#1575 + '] : ' + #1591#1576#1575#1593#1577' '#1578#1601#1575#1589#1610#1604' '#1575#1604#1576#1585#1602#1610#1577,
+        mtConfirmation, [mbYes, mbNo, mbCancel], 0);
+
+      if Choice = mrYes then
+      begin
+        uUtils.PrintFileBasedOnType(P);
+        Exit;
+      end
+      else if Choice = mrCancel then
+        Exit;
+    end;
+  end;
+
   SL := TStringList.Create;
   try
     SL.Add('<!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="utf-8">');
