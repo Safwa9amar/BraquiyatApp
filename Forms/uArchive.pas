@@ -206,7 +206,7 @@ begin
   if DM.qBraquiya.IsEmpty then Exit;
   N := DM.qBraquiya.FieldByName('NUM_BRQ').AsInteger;
   if MessageDlg(
-    #1607#1604' '#1578#1585#1610#1583' '#1575#1587#1578#1593#1575#1583#1577' '#1575#1604#1576#1585#1602#1610#1577' '#1585#1602#1605' ' + IntToStr(N) + '؟',
+    #1607#1604' '#1578#1585#1610#1583' '#1575#1587#1578#1593#1575#1583#1577' '#1575#1604#1576#1585#1602#1610#1577' '#1585#1602#1605' ' + DM.qBraquiya.FieldByName('NUM_ORDRE').AsString + '؟',
     mtConfirmation, [mbYes, mbNo], 0) = mrYes then
   begin
     try

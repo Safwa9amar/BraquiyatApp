@@ -142,7 +142,7 @@ var
   F: string;
 begin
   F := UpperCase(AField);
-  if F = 'NUM_BRQ' then
+  if (F = 'NUM_BRQ') or (F = 'NUM_ORDRE') then
     Result := #1585#1602#1605' '#1575#1604#1576#1585#1602#1610#1577        // رقم البرقية
   else if F = 'DATE_REC' then
     Result := #1575#1604#1578#1575#1585#1610#1582                          // التاريخ

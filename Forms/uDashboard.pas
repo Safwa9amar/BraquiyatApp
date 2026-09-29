@@ -614,7 +614,7 @@ begin
   Row := 1;
   while (not rq.Eof) and (Row < sgRecent.RowCount) do
   begin
-    sgRecent.Cells[0, Row] := rq.FieldByName('NUM_BRQ').AsString;
+    sgRecent.Cells[0, Row] := rq.FieldByName('NUM_ORDRE').AsString;
     if not rq.FieldByName('DATE_REC').IsNull then
       sgRecent.Cells[1, Row] :=
         FormatDateTime('yyyy/mm/dd', rq.FieldByName('DATE_REC').AsDateTime);

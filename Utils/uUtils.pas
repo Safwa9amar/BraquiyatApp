@@ -158,7 +158,8 @@ begin
     Line := '';
     for I := 0 to ADataSet.FieldCount - 1 do
     begin
-      if I > 0 then Line := Line + ';';
+      if not ADataSet.Fields[I].Visible then Continue;
+      if Line <> '' then Line := Line + ';';
       Line := Line + HeaderLabel(ADataSet.Fields[I].FieldName);
     end;
     W.WriteLine(Line);
@@ -172,7 +173,8 @@ begin
         Line := '';
         for I := 0 to ADataSet.FieldCount - 1 do
         begin
-          if I > 0 then Line := Line + ';';
+          if not ADataSet.Fields[I].Visible then Continue;
+          if Line <> '' then Line := Line + ';';
           Line := Line + '"' +
             StringReplace(CellText(ADataSet.Fields[I]), '"', '""',
                           [rfReplaceAll]) + '"';
@@ -212,7 +214,8 @@ begin
     SB.Append('<h2>').Append(HtmlEsc(ATitle)).Append('</h2>');
     SB.Append('<table><thead><tr>');
     for I := 0 to ADataSet.FieldCount - 1 do
-      SB.Append('<th>').Append(HtmlEsc(HeaderLabel(ADataSet.Fields[I].FieldName)))
+      if ADataSet.Fields[I].Visible then
+        SB.Append('<th>').Append(HtmlEsc(HeaderLabel(ADataSet.Fields[I].FieldName)))
         .Append('</th>');
     SB.Append('</tr></thead><tbody>');
 
@@ -224,7 +227,8 @@ begin
       begin
         SB.Append('<tr>');
         for I := 0 to ADataSet.FieldCount - 1 do
-          SB.Append('<td>').Append(HtmlEsc(CellText(ADataSet.Fields[I])))
+          if ADataSet.Fields[I].Visible then
+            SB.Append('<td>').Append(HtmlEsc(CellText(ADataSet.Fields[I])))
             .Append('</td>');
         SB.Append('</tr>');
         ADataSet.Next;

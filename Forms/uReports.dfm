@@ -114,22 +114,13 @@ object frmReports: TfrmReports
         TabOrder = 3
         OnClick = btnGenerateClick
       end
-      object btnPrint: TButton
-        Left = 60
-        Top = 46
-        Width = 70
-        Height = 28
-        Caption = #1591#1576#1575#1593#1577
-        TabOrder = 4
-        OnClick = btnPrintClick
-      end
       object btnExport: TButton
-        Left = 135
+        Left = 20
         Top = 46
-        Width = 70
+        Width = 80
         Height = 28
         Caption = #1578#1589#1583#1610#1585
-        TabOrder = 5
+        TabOrder = 4
         OnClick = btnExportClick
       end
     end

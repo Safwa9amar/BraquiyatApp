@@ -170,32 +170,6 @@ object frmWared: TfrmWared
         Font.Style = []
         ParentFont = False
       end
-      object lblUrgence: TLabel
-        Left = 271
-        Top = 8
-        Width = 47
-        Height = 12
-        Caption = #1575#1604#1575#1587#1578#1593#1580#1575#1604':'
-        Font.Charset = DEFAULT_CHARSET
-        Font.Color = clWindowText
-        Font.Height = -10
-        Font.Name = 'Tahoma'
-        Font.Style = []
-        ParentFont = False
-      end
-      object lblEtat: TLabel
-        Left = 144
-        Top = 8
-        Width = 28
-        Height = 12
-        Caption = #1575#1604#1581#1575#1604#1577':'
-        Font.Charset = DEFAULT_CHARSET
-        Font.Color = clWindowText
-        Font.Height = -10
-        Font.Name = 'Tahoma'
-        Font.Style = []
-        ParentFont = False
-      end
       object edtSearch: TEdit
         Left = 680
         Top = 5
@@ -239,34 +213,6 @@ object frmWared: TfrmWared
         ParentFont = False
         TabOrder = 2
       end
-      object cmbUrgence: TComboBox
-        Left = 178
-        Top = 5
-        Width = 90
-        Height = 22
-        Style = csDropDownList
-        Font.Charset = DEFAULT_CHARSET
-        Font.Color = clWindowText
-        Font.Height = -10
-        Font.Name = 'Tahoma'
-        Font.Style = []
-        ParentFont = False
-        TabOrder = 3
-      end
-      object cmbEtat: TComboBox
-        Left = 50
-        Top = 5
-        Width = 84
-        Height = 22
-        Style = csDropDownList
-        Font.Charset = DEFAULT_CHARSET
-        Font.Color = clWindowText
-        Font.Height = -10
-        Font.Name = 'Tahoma'
-        Font.Style = []
-        ParentFont = False
-        TabOrder = 4
-      end
       object btnSearch: TButton
         Left = 820
         Top = 5
@@ -283,7 +229,7 @@ object frmWared: TfrmWared
         OnClick = btnSearchClick
       end
       object btnClear: TButton
-        Left = 4
+        Left = 276
         Top = 5
         Width = 44
         Height = 22

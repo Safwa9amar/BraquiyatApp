@@ -20,13 +20,11 @@ type
     lblDateTo:     TLabel;
     dtTo:          TDateTimePicker;
     btnGenerate:   TButton;
-    btnPrint:      TButton;
     btnExport:     TButton;
     pnlPreview:    TPanel;
     lblPreview:    TLabel;
     procedure FormCreate(Sender: TObject);
     procedure btnGenerateClick(Sender: TObject);
-    procedure btnPrintClick(Sender: TObject);
     procedure btnExportClick(Sender: TObject);
   private
     procedure GenerateReport;
@@ -40,7 +38,6 @@ implementation
 {$R *.dfm}
 
 uses
-  System.IOUtils,
   uDM, uConsts, uTheme, uUtils;
 
 procedure TfrmReports.FormCreate(Sender: TObject);
@@ -105,22 +102,6 @@ end;
 procedure TfrmReports.btnGenerateClick(Sender: TObject);
 begin
   GenerateReport;
-end;
-
-procedure TfrmReports.btnPrintClick(Sender: TObject);
-var
-  F: string;
-begin
-  GenerateReport;
-  if (cmbReportType.ItemIndex = 3) or (not DM.qBraquiya.Active) or
-     DM.qBraquiya.IsEmpty then
-  begin
-    ShowMessage('لا توجد بيانات قابلة للطباعة في هذا التقرير');
-    Exit;
-  end;
-  F := TPath.Combine(TPath.GetTempPath, 'report.html');
-  if uUtils.ExportDataSetToHTML(DM.qBraquiya, F, cmbReportType.Text) then
-    uUtils.OpenFileExternally(F);
 end;
 
 procedure TfrmReports.btnExportClick(Sender: TObject);

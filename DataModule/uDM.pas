@@ -3,7 +3,7 @@ unit uDM;
 interface
 
 uses
-  System.SysUtils, System.Classes, System.IniFiles,
+  System.SysUtils, System.Classes, System.IniFiles, System.StrUtils,
   Data.DB, Data.Win.ADODB,
   uConsts;
 
@@ -43,6 +43,7 @@ type
     FCurrentName:   string;
     FHasServiceCol: Boolean;
     FHasExtCols:    Boolean;
+    FHasOrdreCol:   Boolean;
     FDBPath:        string;
     FDBProvider:    string;
     FqRecent:       TADOQuery;
@@ -50,6 +51,9 @@ type
     function  ConnectToDatabase: Boolean;
     procedure RaiseDataError(E: Exception);
     procedure EnsureBraquiyaColumns;
+    procedure EnsureNumOrdre;
+    function  OrdreExpr: string;
+    procedure HideInternalKey(AQuery: TADOQuery);
     procedure EnsureServicesTable;
     function  ProbeColumn(const ATable, ACol: string): Boolean; overload;
     function  ProbeColumn(const ATable, ACol: string; out AError: string): Boolean; overload;
@@ -76,6 +80,8 @@ type
     procedure SaveBraquiyaExt(ANum: Integer; const E: TBraquiyaExt);
     // Persist the attachment file name (relative to the Attachments folder).
     procedure SetAttachment(ANum: Integer; const AFile: string);
+    // Per-type display number (وارد 1,2,3… / صادر 1,2,3…) of a telegram.
+    function  GetNumOrdre(ANum: Integer): Integer;
     // Load the routing offices (المصالح) from the DB (MASLAHA); falls back to
     // the built-in list (uConsts.FillServices) if the table isn't reachable.
     procedure FillServices(AItems: TStrings);
@@ -367,6 +373,7 @@ begin
 
   FHasServiceCol := False;
   FHasExtCols    := False;
+  FHasOrdreCol   := False;
   EnsureBraquiyaColumns;   // add any missing real-correspondence columns
   EnsureServicesTable;     // create + seed the MASLAHA (offices) table
   EnsureJihaSeed;          // add the standard senders (الجهات) if missing
@@ -400,9 +407,92 @@ begin
   AddCol('DATE_ARRIVEE', 'DATETIME');    // تاريخ الورود
   AddCol('ATTACHMENT',   'TEXT(255)');   // الملف المرفق (relative name in Attachments\)
   AddCol('SERVICE',      'TEXT(80)');    // المصلحة (routing — also ensured)
+  AddCol('NUM_ORDRE',    'LONG');        // رقم البرقية — separate sequence per TYPE_BRQ
 
   FHasExtCols    := ProbeColumn('BRAQUIYA', 'MSG_REF');
   FHasServiceCol := ProbeColumn('BRAQUIYA', 'SERVICE');
+  FHasOrdreCol   := ProbeColumn('BRAQUIYA', 'NUM_ORDRE');
+  EnsureNumOrdre;
+end;
+
+{ Give every telegram that has no NUM_ORDRE yet (rows created before the column
+  existed) the next number of its own type, in NUM_BRQ order. Incoming and
+  outgoing telegrams are numbered independently. }
+procedure TDM.EnsureNumOrdre;
+var
+  qSel, qUpd: TADOQuery;
+  NextWared, NextSader, N: Integer;
+begin
+  if not FHasOrdreCol then Exit;
+  try
+    NextWared := CountQuery('SELECT MAX(NUM_ORDRE) FROM BRAQUIYA WHERE TYPE_BRQ=:tp',
+                            'tp', TYP_WARED) + 1;
+    NextSader := CountQuery('SELECT MAX(NUM_ORDRE) FROM BRAQUIYA WHERE TYPE_BRQ=:tp',
+                            'tp', TYP_SADER) + 1;
+    qSel := TADOQuery.Create(nil);
+    qUpd := TADOQuery.Create(nil);
+    try
+      qSel.Connection := Conn;
+      qUpd.Connection := Conn;
+      qSel.SQL.Text :=
+        'SELECT NUM_BRQ, TYPE_BRQ FROM BRAQUIYA ' +
+        'WHERE NUM_ORDRE IS NULL ORDER BY NUM_BRQ';
+      qSel.Open;
+      qUpd.SQL.Text := 'UPDATE BRAQUIYA SET NUM_ORDRE=:o WHERE NUM_BRQ=:n';
+      while not qSel.Eof do
+      begin
+        if qSel.FieldByName('TYPE_BRQ').AsString = TYP_SADER then
+        begin
+          N := NextSader;
+          Inc(NextSader);
+        end
+        else
+        begin
+          N := NextWared;
+          Inc(NextWared);
+        end;
+        qUpd.Parameters.ParamByName('o').Value := N;
+        qUpd.Parameters.ParamByName('n').Value := qSel.FieldByName('NUM_BRQ').AsInteger;
+        qUpd.ExecSQL;
+        qSel.Next;
+      end;
+    finally
+      qUpd.Free;
+      qSel.Free;
+    end;
+  except
+    // Non-fatal: lists fall back to showing NUM_BRQ for unnumbered rows.
+  end;
+end;
+
+// Select-list expression for the user-visible telegram number.
+function TDM.OrdreExpr: string;
+begin
+  if FHasOrdreCol then
+    Result := 'IIF(B.NUM_ORDRE IS NULL, B.NUM_BRQ, B.NUM_ORDRE) AS NUM_ORDRE'
+  else
+    Result := 'B.NUM_BRQ AS NUM_ORDRE';
+end;
+
+// NUM_BRQ stays in list queries as the internal key, but is not shown/exported.
+procedure TDM.HideInternalKey(AQuery: TADOQuery);
+var
+  F: TField;
+begin
+  F := AQuery.FindField('NUM_BRQ');
+  if Assigned(F) then F.Visible := False;
+end;
+
+function TDM.GetNumOrdre(ANum: Integer): Integer;
+begin
+  Result := ANum;
+  if not FHasOrdreCol then Exit;
+  try
+    Result := CountQuery('SELECT NUM_ORDRE FROM BRAQUIYA WHERE NUM_BRQ=:n', 'n', ANum);
+    if Result <= 0 then Result := ANum;
+  except
+    Result := ANum;
+  end;
 end;
 
 procedure TDM.EnsureServicesTable;
@@ -553,8 +643,9 @@ begin
   if not FHasExtCols then Exit;
   // Bind a Date/Time column with an ACE literal, not a parameter (see ACEDateLit).
   DateLit := 'Null';
-  if E.DateArrivee > 0 then
-    DateLit := ACEDateLit(E.DateArrivee);
+  if E.DateArrivee > 0 then   // keep the time too (وقت الاستقبال)
+    DateLit := '#' + FormatDateTime('yyyy-mm-dd hh:nn:ss', E.DateArrivee,
+                                 TFormatSettings.Invariant) + '#';
 
   q := TADOQuery.Create(nil);
   try
@@ -656,7 +747,7 @@ begin
     // bound uses "< ADateTo + 1 day" so it stays inclusive of any time-of-day
     // stored in DATE_REC.
     SQL :=
-      'SELECT B.NUM_BRQ, B.DATE_REC, B.OBJET, B.URGENCE, ' +
+      'SELECT ' + OrdreExpr + ', B.NUM_BRQ, B.DATE_REC, B.OBJET, B.URGENCE, ' +
       '       B.ETAT, B.TYPE_BRQ, J.NOM_JIHA, ' +
       '       IIF(B.ATTACHMENT IS NULL, '''', B.ATTACHMENT) AS ATTACHMENT ' +
       'FROM BRAQUIYA B ' +
@@ -673,12 +764,13 @@ begin
     begin
       if StrToIntDef(Trim(ASearch), 0) > 0 then
         SQL := SQL +
-          'AND (B.NUM_BRQ = :nbr OR B.OBJET LIKE :s1 OR B.CONTENU LIKE :s2 OR J.NOM_JIHA LIKE :s3) '
+          'AND (' + IfThen(FHasOrdreCol, 'B.NUM_ORDRE', 'B.NUM_BRQ') +
+          ' = :nbr OR B.OBJET LIKE :s1 OR B.CONTENU LIKE :s2 OR J.NOM_JIHA LIKE :s3) '
       else
         SQL := SQL +
           'AND (B.OBJET LIKE :s1 OR B.CONTENU LIKE :s2 OR J.NOM_JIHA LIKE :s3) ';
     end;
-    SQL := SQL + 'ORDER BY B.DATE_REC DESC';
+    SQL := SQL + 'ORDER BY B.DATE_REC DESC, B.NUM_BRQ DESC';
 
     qBraquiya.Close;
     qBraquiya.SQL.Text := SQL;
@@ -695,6 +787,7 @@ begin
       qBraquiya.Parameters.ParamByName('s3').Value := '%' + ASearch + '%';
     end;
     qBraquiya.Open;
+    HideInternalKey(qBraquiya);
   except
     on E: Exception do RaiseDataError(E);
   end;
@@ -705,7 +798,7 @@ begin
   try
     qBraquiya.Close;
     qBraquiya.SQL.Text :=
-      'SELECT B.NUM_BRQ, B.DATE_REC, B.OBJET, B.URGENCE, ' +
+      'SELECT ' + OrdreExpr + ', B.NUM_BRQ, B.DATE_REC, B.OBJET, B.URGENCE, ' +
       '       B.ETAT, B.TYPE_BRQ, J.NOM_JIHA ' +
       'FROM BRAQUIYA B ' +
       'LEFT JOIN JIHA J ON B.ID_JIHA = J.ID_JIHA ' +
@@ -717,6 +810,7 @@ begin
                           QuotedStr(ST_MOALAJA) + ') ' +
       'ORDER BY B.DATE_REC DESC';
     qBraquiya.Open;
+    HideInternalKey(qBraquiya);
   except
     on E: Exception do RaiseDataError(E);
   end;
@@ -727,7 +821,7 @@ begin
   try
     FqRecent.Close;
     FqRecent.SQL.Text := Format(
-      'SELECT TOP %d B.NUM_BRQ, B.DATE_REC, J.NOM_JIHA, ' +
+      'SELECT TOP %d ' + OrdreExpr + ', B.NUM_BRQ, B.DATE_REC, J.NOM_JIHA, ' +
       '       B.OBJET, B.URGENCE, B.ETAT ' +
       'FROM BRAQUIYA B ' +
       'LEFT JOIN JIHA J ON B.ID_JIHA = J.ID_JIHA ' +
@@ -750,6 +844,7 @@ function TDM.InsertBraquiya(AObjet, AType, AUrgence,
                             ADateRec: TDateTime): Integer;
 var
   q: TADOQuery;
+  NextOrdre: Integer;
 begin
   Result := -1;
   q := TADOQuery.Create(nil);
@@ -784,6 +879,20 @@ begin
         q.SQL.Text := 'SELECT MAX(NUM_BRQ) AS NewID FROM BRAQUIYA';
         q.Open;
         Result := q.FieldByName('NewID').AsInteger;
+      end;
+
+      // Next number in this type's own sequence. MAX() also counts soft-deleted
+      // rows so a number is never handed out twice.
+      if FHasOrdreCol and (Result > 0) then
+      begin
+        NextOrdre := CountQuery(
+          'SELECT MAX(NUM_ORDRE) FROM BRAQUIYA WHERE TYPE_BRQ=:tp',
+          'tp', AType) + 1;
+        q.Close;
+        q.SQL.Text := 'UPDATE BRAQUIYA SET NUM_ORDRE=:o WHERE NUM_BRQ=:n';
+        q.Parameters.ParamByName('o').Value := NextOrdre;
+        q.Parameters.ParamByName('n').Value := Result;
+        q.ExecSQL;
       end;
     except
       on E: Exception do RaiseDataError(E);

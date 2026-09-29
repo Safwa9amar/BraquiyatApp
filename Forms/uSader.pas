@@ -33,10 +33,6 @@ type
     dtFrom:      TDateTimePicker;
     lblTo:       TLabel;
     dtTo:        TDateTimePicker;
-    lblUrgence:  TLabel;
-    cmbUrgence:  TComboBox;
-    lblEtat:     TLabel;
-    cmbEtat:     TComboBox;
     btnSearch:   TButton;
     btnClear:    TButton;
     grdBraquiya: TDBGrid;
@@ -111,20 +107,9 @@ begin
   lblSearch.Caption  := #1576#1581#1579':';
   lblFrom.Caption    := #1605#1606':';
   lblTo.Caption      := #1573#1604#1609':';
-  lblUrgence.Caption := #1575#1604#1575#1587#1578#1593#1580#1575#1604':';
-  lblEtat.Caption    := #1575#1604#1581#1575#1604#1577':';
   btnSearch.Caption  := #1576#1581#1579;
   btnClear.Caption   := #1605#1587#1581;
 
-  cmbUrgence.Items.Clear;
-  cmbUrgence.Items.AddStrings([
-    #1575#1604#1603#1604, #1593#1575#1580#1604, #1593#1575#1583#1610, #1587#1585#1610]);
-  cmbUrgence.ItemIndex := 0;
-
-  cmbEtat.Items.Clear;
-  cmbEtat.Items.AddStrings([
-    #1575#1604#1603#1604, #1589#1575#1583#1585#1577, #1605#1608#1580#1607#1577, #1605#1593#1575#1604#1580#1577, #1605#1572#1585#1588#1601#1577]);
-  cmbEtat.ItemIndex := 0;
 
   dtFrom.Date := Date - 30;
   dtTo.Date   := Date;
@@ -160,29 +145,8 @@ begin
 end;
 
 procedure TfrmSader.btnSearchClick(Sender: TObject);
-var
-  U, E: string;
 begin
-  case cmbUrgence.ItemIndex of
-    1: U := URG_AJIL;
-    2: U := URG_ADI;
-    3: U := URG_SIRRI;
-  else
-    U := '';
-  end;
-  case cmbEtat.ItemIndex of
-    1: E := ST_SADERAH;
-    2: E := ST_MAWJAHA;
-    3: E := ST_MOALAJA;
-    4: E := ST_MORSAFA;
-  else
-    E := '';
-  end;
-  DM.OpenBraquiyat(TYP_SADER, E, U, dtFrom.Date, dtTo.Date, Trim(edtSearch.Text));
-  uTheme.SetupBraquiyaGrid(grdBraquiya);
-  lblCount.Caption :=
-    ' ' + #1575#1604#1605#1580#1605#1608#1593': ' +
-    IntToStr(DM.qBraquiya.RecordCount) + ' ' + #1576#1585#1602#1610#1577 + ' ';
+  LoadData;
 end;
 
 procedure TfrmSader.edtSearchKeyPress(Sender: TObject; var Key: Char);
@@ -197,8 +161,6 @@ end;
 procedure TfrmSader.btnClearClick(Sender: TObject);
 begin
   edtSearch.Clear;
-  cmbUrgence.ItemIndex := 0;
-  cmbEtat.ItemIndex    := 0;
   dtFrom.Date := Date - 30;
   dtTo.Date   := Date;
   LoadData;
@@ -234,7 +196,7 @@ begin
   if DM.qBraquiya.IsEmpty then Exit;
   N := DM.qBraquiya.FieldByName('NUM_BRQ').AsInteger;
   if MessageDlg(
-    #1607#1604' '#1578#1585#1610#1583' '#1581#1584#1601' '#1575#1604#1576#1585#1602#1610#1577' '#1585#1602#1605' ' + IntToStr(N) + '؟',
+    #1607#1604' '#1578#1585#1610#1583' '#1581#1584#1601' '#1575#1604#1576#1585#1602#1610#1577' '#1585#1602#1605' ' + DM.qBraquiya.FieldByName('NUM_ORDRE').AsString + '؟',
     mtWarning, [mbYes, mbNo], 0) = mrYes then
   begin
     try

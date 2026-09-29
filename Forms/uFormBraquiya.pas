@@ -4,7 +4,7 @@ interface
 
 uses
   Winapi.Windows, Winapi.Messages,
-  System.SysUtils, System.Classes, System.StrUtils,
+  System.SysUtils, System.Classes, System.StrUtils, System.DateUtils,
   Vcl.Forms, Vcl.StdCtrls, Vcl.ExtCtrls,
   Vcl.Controls, Vcl.ComCtrls, Vcl.Graphics, Vcl.Dialogs,
   Data.Win.ADODB,
@@ -93,6 +93,8 @@ type
     procedure BuildExtFields;
     procedure LayoutExtFields;
     procedure ApplyTypeUI;
+    function  MsgRefCaption: string;
+    function  HeureCaption: string;
     function  BuildExt: TBraquiyaExt;
     procedure ClearExtFields;
   public
@@ -311,10 +313,12 @@ begin
   dtArrivee.Align     := alLeft;
   dtArrivee.AlignWithMargins := True;
   dtArrivee.Margins.SetBounds(4, 1, 4, 1);
-  dtArrivee.Width     := 190;
+  dtArrivee.Width     := 110;
   dtArrivee.Font.Name := 'Tahoma';
   dtArrivee.Font.Size := 10;
-  dtArrivee.Date      := Date;
+  dtArrivee.Kind      := dtkTime;
+  dtArrivee.Format    := 'HH:mm';               // time only (وقت الاستقبال / الإرسال)
+  dtArrivee.DateTime  := Now;
   FRowDateArr := row;
 
   row := NewRow(58);
@@ -352,17 +356,45 @@ begin
   PlaceRow(FRowMsgRef);
   PlaceRow(FRowRefNum);
   PlaceRow(FRowHeure);
+  PlaceRow(FRowDateArr);   // وقت الاستقبال / الإرسال time picker — replaces FRowHeure
   PlaceRow(FRowDest);
   PlaceRow(FRowCopie);
   PlaceRow(FRowNumArr);
-  PlaceRow(FRowDateArr);
   PlaceRow(FRowRefPrec);
   pnlSecExt.Height := CurY + 8;
+end;
+
+// Caption of the "رقم الإرسال" field — "رقم الاستقبال" for incoming telegrams.
+function TfrmFormBraquiya.MsgRefCaption: string;
+begin
+  if FTypeBRQ = TYP_SADER then
+    Result := HeaderLabel('MSG_REF')
+  else
+    Result := #1585#1602#1605' '#1575#1604#1575#1587#1578#1602#1576#1575#1604;   // رقم الاستقبال
+end;
+
+// Caption of the "وقت الإرسال" field — "وقت الاستقبال" for incoming telegrams.
+function TfrmFormBraquiya.HeureCaption: string;
+begin
+  if FTypeBRQ = TYP_SADER then
+    Result := HeaderLabel('HEURE')
+  else
+    Result := #1608#1602#1578' '#1575#1604#1575#1587#1578#1602#1576#1575#1604;   // وقت الاستقبال
 end;
 
 procedure TfrmFormBraquiya.ApplyTypeUI;
 var
   IsSader: Boolean;
+
+  procedure SetRowCaption(ARow: TPanel; const ACap: string);
+  var I: Integer;
+  begin
+    if not Assigned(ARow) then Exit;
+    for I := 0 to ARow.ControlCount - 1 do
+      if ARow.Controls[I] is TLabel then
+        TLabel(ARow.Controls[I]).Caption := ACap;
+  end;
+
 begin
   IsSader := (FTypeBRQ = TYP_SADER);
 
@@ -388,11 +420,24 @@ begin
   if Assigned(FRowCopie) then
     FRowCopie.Visible := IsSader;
 
-  // 4. Incoming fields: "رقم الوارد" and "تاريخ الورود" are shown for WARED
+  // 4. "رقم الوارد" is no longer entered on the form (hidden, so editing an
+  //    old record keeps its stored value).
   if Assigned(FRowNumArr) then
-    FRowNumArr.Visible := not IsSader;
+    FRowNumArr.Visible := False;
+
+  // 4b. Incoming telegrams are received, not sent: رقم/وقت الاستقبال.
+  //     "رقم الإرسال" is not entered for SADER (hidden, old values kept).
+  //     The time is a time picker for both types (stored in DATE_ARRIVEE);
+  //     the old free-text HEURE row stays hidden.
+  if Assigned(FRowMsgRef) then
+    FRowMsgRef.Visible := not IsSader;
+  if Assigned(FRowHeure) then
+    FRowHeure.Visible := False;
   if Assigned(FRowDateArr) then
-    FRowDateArr.Visible := not IsSader;
+    FRowDateArr.Visible := True;
+  SetRowCaption(FRowMsgRef,   MsgRefCaption + ':');
+  SetRowCaption(FRowHeure,    HeureCaption + ':');
+  SetRowCaption(FRowDateArr,  HeureCaption + ':');
 
   LayoutExtFields;
 
@@ -408,19 +453,20 @@ begin
   Result.Signataire   := Trim(edtSign.Text);
   Result.Tabligh      := FStoredTabligh;
   Result.RefPrec      := Trim(memRefPrec.Text);
+  // وقت الاستقبال / الإرسال: the picker's time on the telegram's date.
+  Result.DateArrivee  := DateOf(dtDate.Date) + TimeOf(dtArrivee.Time);
   if FTypeBRQ = TYP_SADER then
   begin
     Result.Destinataire := Trim(edtDest.Text);
     Result.Copie        := Trim(edtCopie.Text);
     Result.NumArrivee   := '';
-    Result.DateArrivee  := 0;
   end
   else
   begin
     Result.Destinataire := '';
     Result.Copie        := '';
+    // No longer on the form — preserve whatever an older record stored.
     Result.NumArrivee   := Trim(edtNumArr.Text);
-    Result.DateArrivee  := dtArrivee.Date;
   end;
 end;
 
@@ -435,7 +481,7 @@ begin
   if Assigned(edtNumArr)  then edtNumArr.Text  := '';
   if Assigned(memRefPrec) then memRefPrec.Text := '';
   FStoredTabligh := '';
-  if Assigned(dtArrivee)  then dtArrivee.Date  := Date;
+  if Assigned(dtArrivee)  then dtArrivee.DateTime := Now;
 end;
 
 function TfrmFormBraquiya.AttachFolder: string;
@@ -643,8 +689,33 @@ begin
   FMode   := AMode;
   FNumBRQ := ANum;
   lblFormTitle.Caption :=
-    #1578#1593#1583#1610#1604' '#1575#1604#1576#1585#1602#1610#1577' '#1585#1602#1605' ' + IntToStr(ANum);
+    #1578#1593#1583#1610#1604' '#1575#1604#1576#1585#1602#1610#1577' '#1585#1602#1605' ' + IntToStr(DM.GetNumOrdre(ANum));
   LoadRecord(ANum);
+end;
+
+// Old records typed the time as text ("20H00", "20:00", "20h"); read it back
+// into the time picker, or keep ADefault if it isn't a recognisable time.
+function ParseHeure(const AText: string; ADefault: TTime): TTime;
+var
+  S: string;
+  P, H, M: Integer;
+begin
+  Result := ADefault;
+  S := UpperCase(Trim(AText));
+  P := Pos('H', S);
+  if P = 0 then P := Pos(':', S);
+  if P > 0 then
+  begin
+    H := StrToIntDef(Trim(Copy(S, 1, P - 1)), -1);
+    M := StrToIntDef(Trim(Copy(S, P + 1, MaxInt)), 0);
+  end
+  else
+  begin
+    H := StrToIntDef(S, -1);
+    M := 0;
+  end;
+  if (H >= 0) and (H < 24) and (M >= 0) and (M < 60) then
+    Result := EncodeTime(H, M, 0, 0);
 end;
 
 procedure TfrmFormBraquiya.LoadRecord(ANum: Integer);
@@ -660,7 +731,10 @@ begin
     q.Open;
     if not q.IsEmpty then
     begin
-      edtNum.Text     := IntToStr(ANum);
+      if Assigned(q.FindField('NUM_ORDRE')) and not q.FieldByName('NUM_ORDRE').IsNull then
+        edtNum.Text   := q.FieldByName('NUM_ORDRE').AsString
+      else
+        edtNum.Text   := IntToStr(ANum);
       dtDate.DateTime := q.FieldByName('DATE_REC').AsDateTime;
       edtObjet.Text   := q.FieldByName('OBJET').AsString;
       memContenu.Text := q.FieldByName('CONTENU').AsString;
@@ -717,7 +791,9 @@ begin
       if Assigned(q.FindField('NUM_ARRIVEE'))  then edtNumArr.Text  := q.FieldByName('NUM_ARRIVEE').AsString;
       if Assigned(q.FindField('DATE_ARRIVEE')) and
          not q.FieldByName('DATE_ARRIVEE').IsNull then
-        dtArrivee.DateTime := q.FieldByName('DATE_ARRIVEE').AsDateTime;
+        dtArrivee.DateTime := q.FieldByName('DATE_ARRIVEE').AsDateTime
+      else if Assigned(q.FindField('HEURE')) then
+        dtArrivee.Time := ParseHeure(q.FieldByName('HEURE').AsString, dtArrivee.Time);
 
       if Assigned(q.FindField('ATTACHMENT')) and
          (q.FieldByName('ATTACHMENT').AsString <> '') then
@@ -786,7 +862,7 @@ begin
         DM.SaveBraquiyaExt(NewNum, BuildExt);
         SaveAttachment(NewNum);
         ShowMessage(#1578#1605' '#1581#1601#1592' '#1575#1604#1576#1585#1602#1610#1577' '#1585#1602#1605' ' +
-                    IntToStr(NewNum) + ' ' + #1576#1606#1580#1575#1581);
+                    IntToStr(DM.GetNumOrdre(NewNum)) + ' ' + #1576#1606#1580#1575#1581);
         ModalResult := mrOk;
       end
       else
@@ -811,11 +887,16 @@ var
   F, P: string;
   Choice: Integer;
 
-  procedure Row(const AField, AValue: string);
+  procedure RowCap(const ACaption, AValue: string);
   begin
     if Trim(AValue) <> '' then
-      SL.Add('<tr><td class="k">' + HeaderLabel(AField) + '</td><td>' +
+      SL.Add('<tr><td class="k">' + ACaption + '</td><td>' +
              AValue + '</td></tr>');
+  end;
+
+  procedure Row(const AField, AValue: string);
+  begin
+    RowCap(HeaderLabel(AField), AValue);
   end;
 
 begin
@@ -867,9 +948,10 @@ begin
            memContenu.Text + '</td></tr>');
     SL.Add('<tr><td class="k">' + HeaderLabel('REMARQUES') + '</td><td>' +
            memRem.Text + '</td></tr>');
-    Row('MSG_REF',      edtMsgRef.Text);
+    if FTypeBRQ <> TYP_SADER then
+      RowCap(MsgRefCaption, edtMsgRef.Text);
     Row('REF_NUM',      edtRefNum.Text);
-    Row('HEURE',        edtHeure.Text);
+    RowCap(HeureCaption, FormatDateTime('hh:nn', dtArrivee.Time));
     if FTypeBRQ = TYP_SADER then
     begin
       Row('DESTINATAIRE', edtDest.Text);
@@ -878,8 +960,6 @@ begin
     Row('SIGNATAIRE',   edtSign.Text);
     Row('TABLIGH',      FStoredTabligh);
     Row('REF_PREC',     memRefPrec.Text);
-    if FTypeBRQ <> TYP_SADER then
-      Row('NUM_ARRIVEE',  edtNumArr.Text);
     Row('ATTACHMENT',   ExtractFileName(FAttachPath));
     SL.Add('</table></body></html>');
     F := TPath.Combine(TPath.GetTempPath, 'braquiya_print.html');

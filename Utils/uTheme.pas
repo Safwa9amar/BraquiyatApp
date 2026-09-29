@@ -279,7 +279,9 @@ begin
       begin
         AGrid.Columns[I].Title.Caption :=
           HeaderLabel(AGrid.Columns[I].Field.FieldName);
-        if SameText(AGrid.Columns[I].FieldName, 'TYPE_BRQ') then
+        if SameText(AGrid.Columns[I].FieldName, 'TYPE_BRQ') or
+           (SameText(AGrid.Columns[I].FieldName, 'NUM_BRQ') and
+            Assigned(AGrid.DataSource.DataSet.FindField('NUM_ORDRE'))) then
           AGrid.Columns[I].Visible := False
         else if SameText(AGrid.Columns[I].FieldName, 'OBJET') then
           AGrid.Columns[I].Width := 240
