@@ -1,4 +1,4 @@
-unit uFormBraquiya;
+﻿unit uFormBraquiya;
 
 interface
 
@@ -317,7 +317,7 @@ begin
   dtArrivee.Font.Name := 'Tahoma';
   dtArrivee.Font.Size := 10;
   dtArrivee.Kind      := dtkTime;
-  dtArrivee.Format    := 'HH:mm';               // time only (وقت الاستقبال / الإرسال)
+  dtArrivee.Format    := 'HH:mm';               // time only (وقت الاستلام / الإرسال)
   dtArrivee.DateTime  := Now;
   FRowDateArr := row;
 
@@ -356,7 +356,7 @@ begin
   PlaceRow(FRowMsgRef);
   PlaceRow(FRowRefNum);
   PlaceRow(FRowHeure);
-  PlaceRow(FRowDateArr);   // وقت الاستقبال / الإرسال time picker — replaces FRowHeure
+  PlaceRow(FRowDateArr);   // وقت الاستلام / الإرسال time picker — replaces FRowHeure
   PlaceRow(FRowDest);
   PlaceRow(FRowCopie);
   PlaceRow(FRowNumArr);
@@ -364,22 +364,22 @@ begin
   pnlSecExt.Height := CurY + 8;
 end;
 
-// Caption of the "رقم الإرسال" field — "رقم الاستقبال" for incoming telegrams.
+// Caption of the "رقم الإرسال" field — "رقم الاستلام" for incoming telegrams.
 function TfrmFormBraquiya.MsgRefCaption: string;
 begin
   if FTypeBRQ = TYP_SADER then
     Result := HeaderLabel('MSG_REF')
   else
-    Result := #1585#1602#1605' '#1575#1604#1575#1587#1578#1602#1576#1575#1604;   // رقم الاستقبال
+    Result := #1585#1602#1605' '#1575#1604#1575#1587#1578#1604#1575#1605;   // رقم الاستلام
 end;
 
-// Caption of the "وقت الإرسال" field — "وقت الاستقبال" for incoming telegrams.
+// Caption of the "وقت الإرسال" field — "وقت الاستلام" for incoming telegrams.
 function TfrmFormBraquiya.HeureCaption: string;
 begin
   if FTypeBRQ = TYP_SADER then
     Result := HeaderLabel('HEURE')
   else
-    Result := #1608#1602#1578' '#1575#1604#1575#1587#1578#1602#1576#1575#1604;   // وقت الاستقبال
+    Result := #1608#1602#1578' '#1575#1604#1575#1587#1578#1604#1575#1605;   // وقت الاستلام
 end;
 
 procedure TfrmFormBraquiya.ApplyTypeUI;
@@ -425,7 +425,7 @@ begin
   if Assigned(FRowNumArr) then
     FRowNumArr.Visible := False;
 
-  // 4b. Incoming telegrams are received, not sent: رقم/وقت الاستقبال.
+  // 4b. Incoming telegrams are received, not sent: رقم/وقت الاستلام.
   //     "رقم الإرسال" is not entered for SADER (hidden, old values kept).
   //     The time is a time picker for both types (stored in DATE_ARRIVEE);
   //     the old free-text HEURE row stays hidden.
@@ -453,7 +453,7 @@ begin
   Result.Signataire   := Trim(edtSign.Text);
   Result.Tabligh      := FStoredTabligh;
   Result.RefPrec      := Trim(memRefPrec.Text);
-  // وقت الاستقبال / الإرسال: the picker's time on the telegram's date.
+  // وقت الاستلام / الإرسال: the picker's time on the telegram's date.
   Result.DateArrivee  := DateOf(dtDate.Date) + TimeOf(dtArrivee.Time);
   if FTypeBRQ = TYP_SADER then
   begin
@@ -958,7 +958,6 @@ begin
       Row('COPIE',        edtCopie.Text);
     end;
     Row('SIGNATAIRE',   edtSign.Text);
-    Row('TABLIGH',      FStoredTabligh);
     Row('REF_PREC',     memRefPrec.Text);
     Row('ATTACHMENT',   ExtractFileName(FAttachPath));
     SL.Add('</table></body></html>');

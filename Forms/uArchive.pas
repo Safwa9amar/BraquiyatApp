@@ -1,4 +1,4 @@
-unit uArchive;
+﻿unit uArchive;
 
 interface
 
@@ -188,8 +188,25 @@ begin
     D2 := EndOfTheMonth(D1);
   end;
 
-  DM.OpenBraquiyat(Typ, ST_MORSAFA, '', D1, D2, Trim(edtSearch.Text));
+  DM.OpenBraquiyat(Typ, ST_MORSAFA, '', D1, D2, Trim(edtSearch.Text), True);
   uTheme.SetupBraquiyaGrid(grdArchive);
+  // Same captions as the الصادر / الوارد lists. MSG_REF is only entered for
+  // incoming telegrams, so it is always "رقم الاستلام".
+  uTheme.SetColumnCaption(grdArchive, 'MSG_REF',
+    #1585#1602#1605' '#1575#1604#1575#1587#1578#1604#1575#1605);                 // رقم الاستلام
+  if Typ = TYP_WARED then
+  begin
+    uTheme.SetColumnCaption(grdArchive, 'DATE_REC',
+      #1578#1575#1585#1610#1582' '#1575#1604#1575#1587#1578#1604#1575#1605);     // تاريخ الاستلام
+    uTheme.SetColumnCaption(grdArchive, 'HEURE',
+      #1608#1602#1578' '#1575#1604#1575#1587#1578#1604#1575#1605);               // وقت الاستلام
+  end
+  else if Typ = TYP_SADER then
+    uTheme.SetColumnCaption(grdArchive, 'DATE_REC',
+      #1578#1575#1585#1610#1582' '#1575#1604#1573#1585#1587#1575#1604)           // تاريخ الإرسال
+  else
+    uTheme.SetColumnCaption(grdArchive, 'HEURE',
+      #1575#1604#1608#1602#1578);                                                // الوقت
   lblCount.Caption :=
     ' ' + #1575#1604#1571#1585#1588#1610#1601': ' +
     IntToStr(DM.qBraquiya.RecordCount) + ' ' + #1576#1585#1602#1610#1577' '#1605#1572#1585#1588#1601#1577 + ' ';

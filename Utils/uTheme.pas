@@ -1,4 +1,4 @@
-unit uTheme;
+﻿unit uTheme;
 
 {
   Single source of truth for the application's look & feel.
@@ -96,6 +96,7 @@ procedure RoundPanel(AControl: TWinControl; ARadius: Integer);  // rounded-corne
 
 // Telegram-grid helpers: Arabic titles, hidden TYPE_BRQ, badge cell drawing.
 procedure SetupBraquiyaGrid(AGrid: TDBGrid);              // call after dataset is open
+procedure SetColumnCaption(AGrid: TDBGrid; const AField, ACaption: string);
 procedure DrawBadgeCell(AGrid: TDBGrid; const ARect: TRect; AColumn: TColumn);
 
 implementation
@@ -268,11 +269,17 @@ end;
 procedure SetupBraquiyaGrid(AGrid: TDBGrid);
 var
   I: Integer;
+  F: TField;
 begin
   StyleGrid(AGrid);
   if Assigned(AGrid.DataSource) and Assigned(AGrid.DataSource.DataSet) and
      AGrid.DataSource.DataSet.Active then
   begin
+    // DATE_REC is stored with the time of entry — show the date only
+    // (same format as the CSV/HTML export).
+    F := AGrid.DataSource.DataSet.FindField('DATE_REC');
+    if F is TDateTimeField then
+      TDateTimeField(F).DisplayFormat := 'yyyy/mm/dd';
     AGrid.Columns.RebuildColumns;
     for I := 0 to AGrid.Columns.Count - 1 do
       if Assigned(AGrid.Columns[I].Field) then
@@ -289,9 +296,30 @@ begin
         begin
           AGrid.Columns[I].Width := 130;
           AGrid.Columns[I].Alignment := taCenter;
-        end;
+        end
+        else if SameText(AGrid.Columns[I].FieldName, 'HEURE') then
+        begin
+          AGrid.Columns[I].Width := 80;
+          AGrid.Columns[I].Alignment := taCenter;
+        end
+        else if AGrid.Columns[I].Width > 180 then
+          AGrid.Columns[I].Width := 180;   // wide TEXT/memo fields (المرجع، نسخة إلى…)
       end;
   end;
+end;
+
+procedure SetColumnCaption(AGrid: TDBGrid; const AField, ACaption: string);
+var
+  I: Integer;
+begin
+  for I := 0 to AGrid.Columns.Count - 1 do
+    if SameText(AGrid.Columns[I].FieldName, AField) then
+    begin
+      AGrid.Columns[I].Title.Caption := ACaption;
+      // Also on the field, so CSV / print use the same heading as the grid.
+      if Assigned(AGrid.Columns[I].Field) then
+        AGrid.Columns[I].Field.DisplayLabel := ACaption;
+    end;
 end;
 
 procedure DrawBadgeCell(AGrid: TDBGrid; const ARect: TRect; AColumn: TColumn);

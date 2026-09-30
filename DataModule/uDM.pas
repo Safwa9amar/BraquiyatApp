@@ -1,9 +1,9 @@
-unit uDM;
+﻿unit uDM;
 
 interface
 
 uses
-  System.SysUtils, System.Classes, System.IniFiles, System.StrUtils,
+  System.SysUtils, System.Classes, System.IniFiles, System.StrUtils, System.DateUtils,
   Data.DB, Data.Win.ADODB,
   uConsts;
 
@@ -88,7 +88,9 @@ type
 
     procedure OpenBraquiyat(AType, AEtat, AUrgence: string;
                             ADateFrom, ADateTo: TDate;
-                            const ASearch: string = '');
+                            const ASearch: string = '';
+                            AAllColumns: Boolean = False;
+                            AHideArchived: Boolean = False);
     procedure OpenNeedsRouting(ADateFrom, ADateTo: TDate);
     function  OpenRecent(ALimit: Integer): TADOQuery;
 
@@ -105,6 +107,7 @@ type
     function  GetState(ANum: Integer): string;
     procedure SetService(ANum: Integer; const AService: string);
     procedure RouteBraquiya(ANum: Integer; const AService: string);
+    procedure RouteSader(ANum: Integer; const ADest: string);
     procedure MarkProcessed(ANum: Integer);
     procedure ArchiveBraquiya(ANum: Integer);
     procedure RestoreBraquiya(ANum: Integer);
@@ -643,9 +646,11 @@ begin
   if not FHasExtCols then Exit;
   // Bind a Date/Time column with an ACE literal, not a parameter (see ACEDateLit).
   DateLit := 'Null';
-  if E.DateArrivee > 0 then   // keep the time too (وقت الاستقبال)
-    DateLit := '#' + FormatDateTime('yyyy-mm-dd hh:nn:ss', E.DateArrivee,
-                                 TFormatSettings.Invariant) + '#';
+  // Keep the time too (وقت الاستقبال / الإرسال). Built with TimeSerial rather
+  // than a "#… hh:nn#" literal: ADO would parse ":14" / ":00" as parameters.
+  if E.DateArrivee > 0 then
+    DateLit := ACEDateLit(E.DateArrivee) + ' + ' +
+      Format('TimeSerial(%d, %d, 0)', [HourOf(E.DateArrivee), MinuteOf(E.DateArrivee)]);
 
   q := TADOQuery.Create(nil);
   try
@@ -738,58 +743,135 @@ end;
 
 procedure TDM.OpenBraquiyat(AType, AEtat, AUrgence: string;
                             ADateFrom, ADateTo: TDate;
-                            const ASearch: string = '');
+                            const ASearch: string = '';
+                            AAllColumns: Boolean = False;
+                            AHideArchived: Boolean = False);
 var
-  SQL: string;
+  SQL, TimeCol, AddrCols, ExtCols, Srch, StCode, UrCode: string;
+  SrchCols: TStringList;
+  I: Integer;
 begin
+  SrchCols := TStringList.Create;
   try
+  try
+    // Text columns the search box looks in (LIKE %…%).
+    SrchCols.Add('B.OBJET');
+    SrchCols.Add('B.CONTENU');
+    SrchCols.Add('J.NOM_JIHA');
+    // AAllColumns (الصادر / الوارد lists): also return every field the form
+    // captures for this type. Memo fields go through Left() so the grid shows
+    // text instead of "(MEMO)". The time (وقت الاستلام / الإرسال, stored in
+    // DATE_ARRIVEE) is built as hh & Chr(58) & nn — a literal "hh:nn" would be
+    // parsed by ADO as a ":nn" parameter.
+    TimeCol  := '';
+    AddrCols := '';
+    ExtCols  := '';
+    if AAllColumns then
+    begin
+      if FHasExtCols then
+      begin
+        TimeCol := 'IIF(B.DATE_ARRIVEE IS NULL, '''', ' +
+                   'Format(B.DATE_ARRIVEE, ''hh'') & Chr(58) & ' +
+                   'Format(B.DATE_ARRIVEE, ''nn'')) AS HEURE, ';
+        // AType = '' (archive, all types): both the outgoing and incoming columns.
+        if AType <> TYP_WARED then
+        begin
+          AddrCols := 'B.DESTINATAIRE, B.COPIE, ';
+          SrchCols.Add('B.DESTINATAIRE');
+          SrchCols.Add('B.COPIE');
+        end;
+        if AType <> TYP_SADER then
+        begin
+          ExtCols := ExtCols + 'B.MSG_REF, ';
+          SrchCols.Add('B.MSG_REF');
+        end;
+        ExtCols := ExtCols + 'B.REF_NUM, ';
+        SrchCols.Add('B.REF_NUM');
+      end;
+      if FHasServiceCol and (AType <> TYP_SADER) then
+      begin
+        ExtCols := ExtCols + 'B.SERVICE, ';
+        SrchCols.Add('B.SERVICE');
+      end;
+      if FHasExtCols then
+      begin
+        ExtCols := ExtCols + 'Left(B.REF_PREC, 255) AS REF_PREC, ';
+        SrchCols.Add('B.REF_PREC');
+        SrchCols.Add('B.ATTACHMENT');
+      end;
+      ExtCols := ExtCols + 'Left(B.REMARQUES, 255) AS REMARQUES, ';
+      SrchCols.Add('B.REMARQUES');
+    end;
+
     // Date range is embedded as ACE date literals (see ACEDateLit). The upper
     // bound uses "< ADateTo + 1 day" so it stays inclusive of any time-of-day
     // stored in DATE_REC.
     SQL :=
-      'SELECT ' + OrdreExpr + ', B.NUM_BRQ, B.DATE_REC, B.OBJET, B.URGENCE, ' +
-      '       B.ETAT, B.TYPE_BRQ, J.NOM_JIHA, ' +
+      'SELECT ' + OrdreExpr + ', B.NUM_BRQ, B.DATE_REC, ' + TimeCol +
+      '       J.NOM_JIHA, ' + AddrCols + 'B.OBJET, B.URGENCE, ' +
+      '       B.ETAT, B.TYPE_BRQ, ' + ExtCols +
       '       IIF(B.ATTACHMENT IS NULL, '''', B.ATTACHMENT) AS ATTACHMENT ' +
       'FROM BRAQUIYA B ' +
       'LEFT JOIN JIHA J ON B.ID_JIHA = J.ID_JIHA ' +
       'WHERE B.DATE_REC >= ' + ACEDateLit(ADateFrom) +
       ' AND B.DATE_REC < '   + ACEDateLit(ADateTo + 1) +
       ' AND B.ETAT <> :del ';
+    // الصادر / الوارد lists: an archived telegram moves to the archive list.
+    if AHideArchived then SQL := SQL + 'AND B.ETAT <> :arc ';
     if AType    <> '' then SQL := SQL + 'AND B.TYPE_BRQ = :tp ';
     if AEtat    <> '' then SQL := SQL + 'AND B.ETAT = :et ';
     if AUrgence <> '' then SQL := SQL + 'AND B.URGENCE = :ur ';
     // ADO maps each :name to a positional "?"; a name reused in one statement
-    // must use distinct parameters, so the search uses :s1/:s2/:s3 (and :nbr if numeric).
-    if ASearch <> '' then
+    // must use distinct parameters, so each searched column gets its own
+    // :s1..:sN (plus :nbr for a telegram number, :sst / :sur when the text is
+    // a state / urgency label such as "عاجل" — those columns store codes).
+    Srch   := Trim(ASearch);
+    StCode := '';
+    UrCode := '';
+    if Srch <> '' then
     begin
-      if StrToIntDef(Trim(ASearch), 0) > 0 then
-        SQL := SQL +
-          'AND (' + IfThen(FHasOrdreCol, 'B.NUM_ORDRE', 'B.NUM_BRQ') +
-          ' = :nbr OR B.OBJET LIKE :s1 OR B.CONTENU LIKE :s2 OR J.NOM_JIHA LIKE :s3) '
-      else
-        SQL := SQL +
-          'AND (B.OBJET LIKE :s1 OR B.CONTENU LIKE :s2 OR J.NOM_JIHA LIKE :s3) ';
+      if AAllColumns then
+      begin
+        StCode := StateCode(Srch);
+        UrCode := UrgencyCode(Srch);
+      end;
+      SQL := SQL + 'AND (';
+      for I := 0 to SrchCols.Count - 1 do
+      begin
+        if I > 0 then SQL := SQL + ' OR ';
+        SQL := SQL + SrchCols[I] + ' LIKE :s' + IntToStr(I + 1);
+      end;
+      if StrToIntDef(Srch, 0) > 0 then
+        SQL := SQL + ' OR ' + IfThen(FHasOrdreCol, 'B.NUM_ORDRE', 'B.NUM_BRQ') + ' = :nbr';
+      if StCode <> '' then SQL := SQL + ' OR B.ETAT = :sst';
+      if UrCode <> '' then SQL := SQL + ' OR B.URGENCE = :sur';
+      SQL := SQL + ') ';
     end;
     SQL := SQL + 'ORDER BY B.DATE_REC DESC, B.NUM_BRQ DESC';
 
     qBraquiya.Close;
     qBraquiya.SQL.Text := SQL;
     qBraquiya.Parameters.ParamByName('del').Value := ST_MAHDHUF;
+    if AHideArchived then qBraquiya.Parameters.ParamByName('arc').Value := ST_MORSAFA;
     if AType    <> '' then qBraquiya.Parameters.ParamByName('tp').Value := AType;
     if AEtat    <> '' then qBraquiya.Parameters.ParamByName('et').Value := AEtat;
     if AUrgence <> '' then qBraquiya.Parameters.ParamByName('ur').Value := AUrgence;
-    if ASearch  <> '' then
+    if Srch <> '' then
     begin
-      if StrToIntDef(Trim(ASearch), 0) > 0 then
-        qBraquiya.Parameters.ParamByName('nbr').Value := StrToInt(Trim(ASearch));
-      qBraquiya.Parameters.ParamByName('s1').Value := '%' + ASearch + '%';
-      qBraquiya.Parameters.ParamByName('s2').Value := '%' + ASearch + '%';
-      qBraquiya.Parameters.ParamByName('s3').Value := '%' + ASearch + '%';
+      for I := 0 to SrchCols.Count - 1 do
+        qBraquiya.Parameters.ParamByName('s' + IntToStr(I + 1)).Value := '%' + Srch + '%';
+      if StrToIntDef(Srch, 0) > 0 then
+        qBraquiya.Parameters.ParamByName('nbr').Value := StrToInt(Srch);
+      if StCode <> '' then qBraquiya.Parameters.ParamByName('sst').Value := StCode;
+      if UrCode <> '' then qBraquiya.Parameters.ParamByName('sur').Value := UrCode;
     end;
     qBraquiya.Open;
     HideInternalKey(qBraquiya);
   except
     on E: Exception do RaiseDataError(E);
+  end;
+  finally
+    SrchCols.Free;
   end;
 end;
 
@@ -799,7 +881,8 @@ begin
     qBraquiya.Close;
     qBraquiya.SQL.Text :=
       'SELECT ' + OrdreExpr + ', B.NUM_BRQ, B.DATE_REC, B.OBJET, B.URGENCE, ' +
-      '       B.ETAT, B.TYPE_BRQ, J.NOM_JIHA ' +
+      '       B.ETAT, B.TYPE_BRQ, J.NOM_JIHA' +
+      IfThen(FHasExtCols, ', B.DESTINATAIRE', '') + ' ' +
       'FROM BRAQUIYA B ' +
       'LEFT JOIN JIHA J ON B.ID_JIHA = J.ID_JIHA ' +
       'WHERE B.DATE_REC >= ' + ACEDateLit(ADateFrom) +
@@ -1022,6 +1105,41 @@ begin
         q.SQL.Text :=
           'UPDATE BRAQUIYA SET ETAT=:et, SERVICE=:sv WHERE NUM_BRQ=:nm';
         q.Parameters.ParamByName('sv').Value := AService;
+      end
+      else
+        q.SQL.Text := 'UPDATE BRAQUIYA SET ETAT=:et WHERE NUM_BRQ=:nm';
+      q.Parameters.ParamByName('et').Value := ST_MAWJAHA;
+      q.Parameters.ParamByName('nm').Value := ANum;
+      q.ExecSQL;
+    finally
+      q.Free;
+    end;
+  except
+    on E: EDataError do raise;
+    on E: Exception do RaiseDataError(E);
+  end;
+end;
+
+// Outgoing telegram: route it to a دائرة / بلدية of ولاية البيض. The choice is
+// stored as the addressee (المرسل إليه) and the state becomes موجهة.
+procedure TDM.RouteSader(ANum: Integer; const ADest: string);
+var
+  CurState: string;
+  q: TADOQuery;
+begin
+  try
+    CurState := GetState(ANum);
+    if not CanTransition(CurState, ST_MAWJAHA) then
+      raise EDataError.Create('لا يمكن توجيه برقية حالتها: ' +
+        StateLabel(CurState));
+    q := TADOQuery.Create(nil);
+    try
+      q.Connection := Conn;
+      if FHasExtCols then
+      begin
+        q.SQL.Text :=
+          'UPDATE BRAQUIYA SET ETAT=:et, DESTINATAIRE=:ds WHERE NUM_BRQ=:nm';
+        q.Parameters.ParamByName('ds').Value := ADest;
       end
       else
         q.SQL.Text := 'UPDATE BRAQUIYA SET ETAT=:et WHERE NUM_BRQ=:nm';

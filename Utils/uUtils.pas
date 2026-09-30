@@ -1,4 +1,4 @@
-unit uUtils;
+﻿unit uUtils;
 
 interface
 
@@ -125,6 +125,17 @@ begin
   Result := StringReplace(Result, '>', '&gt;', [rfReplaceAll]);
 end;
 
+// Column heading for exports: a caption a list set on the field
+// (uTheme.SetColumnCaption, e.g. "رقم الاستلام" in الوارد) wins over the
+// generic HeaderLabel.
+function FieldCaption(AField: TField): string;
+begin
+  if AField.DisplayLabel <> AField.FieldName then
+    Result := AField.DisplayLabel
+  else
+    Result := HeaderLabel(AField.FieldName);
+end;
+
 // Map a field's stored value to a human-readable (Arabic) cell value.
 function CellText(AField: TField): string;
 var
@@ -160,7 +171,7 @@ begin
     begin
       if not ADataSet.Fields[I].Visible then Continue;
       if Line <> '' then Line := Line + ';';
-      Line := Line + HeaderLabel(ADataSet.Fields[I].FieldName);
+      Line := Line + FieldCaption(ADataSet.Fields[I]);
     end;
     W.WriteLine(Line);
 
@@ -215,7 +226,7 @@ begin
     SB.Append('<table><thead><tr>');
     for I := 0 to ADataSet.FieldCount - 1 do
       if ADataSet.Fields[I].Visible then
-        SB.Append('<th>').Append(HtmlEsc(HeaderLabel(ADataSet.Fields[I].FieldName)))
+        SB.Append('<th>').Append(HtmlEsc(FieldCaption(ADataSet.Fields[I])))
         .Append('</th>');
     SB.Append('</tr></thead><tbody>');
 

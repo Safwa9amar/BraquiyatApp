@@ -1,4 +1,4 @@
-unit uSader;
+﻿unit uSader;
 
 interface
 
@@ -137,8 +137,10 @@ end;
 
 procedure TfrmSader.LoadData;
 begin
-  DM.OpenBraquiyat(TYP_SADER, '', '', dtFrom.Date, dtTo.Date, Trim(edtSearch.Text));
+  DM.OpenBraquiyat(TYP_SADER, '', '', dtFrom.Date, dtTo.Date, Trim(edtSearch.Text), True, True);
   uTheme.SetupBraquiyaGrid(grdBraquiya);
+  uTheme.SetColumnCaption(grdBraquiya, 'DATE_REC',
+    #1578#1575#1585#1610#1582' '#1575#1604#1573#1585#1587#1575#1604);            // تاريخ الإرسال
   lblCount.Caption :=
     ' ' + #1575#1604#1605#1580#1605#1608#1593': ' +
     IntToStr(DM.qBraquiya.RecordCount) + ' ' + #1576#1585#1602#1610#1577 + ' ';

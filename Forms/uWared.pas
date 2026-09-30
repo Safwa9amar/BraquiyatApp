@@ -1,4 +1,4 @@
-unit uWared;
+﻿unit uWared;
 
 interface
 
@@ -178,8 +178,15 @@ end;
 
 procedure TfrmWared.LoadData;
 begin
-  DM.OpenBraquiyat(TYP_WARED, '', '', dtFrom.Date, dtTo.Date, Trim(edtSearch.Text));
+  DM.OpenBraquiyat(TYP_WARED, '', '', dtFrom.Date, dtTo.Date, Trim(edtSearch.Text), True, True);
   uTheme.SetupBraquiyaGrid(grdBraquiya);
+  // Incoming telegrams are received, not sent (same captions as the form).
+  uTheme.SetColumnCaption(grdBraquiya, 'DATE_REC',
+    #1578#1575#1585#1610#1582' '#1575#1604#1575#1587#1578#1604#1575#1605);       // تاريخ الاستلام
+  uTheme.SetColumnCaption(grdBraquiya, 'MSG_REF',
+    #1585#1602#1605' '#1575#1604#1575#1587#1578#1604#1575#1605);                 // رقم الاستلام
+  uTheme.SetColumnCaption(grdBraquiya, 'HEURE',
+    #1608#1602#1578' '#1575#1604#1575#1587#1578#1604#1575#1605);                 // وقت الاستلام
   lblCount.Caption :=
     ' ' + #1575#1604#1605#1580#1605#1608#1593': ' +
     IntToStr(DM.qBraquiya.RecordCount) + ' ' + #1576#1585#1602#1610#1577 + ' ';
